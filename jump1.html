@@ -1,0 +1,577 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  <title>Jump Jump · Platform Game</title>
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      background: #ffffff;
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    }
+    .wrap {
+      height: 100%;
+      display: grid;
+      place-items: center;
+    }
+    canvas {
+      background: #ffffff;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,.1);
+      touch-action: none;
+    }
+    .hud {
+      position: fixed;
+      top: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: #333;
+      display: flex;
+      gap: 16px;
+      align-items: center;
+      font-weight: 600;
+      font-size: 16px;
+    }
+    .btn {
+      padding: 8px 16px;
+      border-radius: 6px;
+      background: #333;
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      font-weight: 700;
+      transition: background 0.2s;
+    }
+    .btn:hover {
+      background: #555;
+    }
+    .toast {
+      position: fixed;
+      bottom: 14px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: #999;
+      font-size: 13px;
+      text-align: center;
+      max-width: 400px;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <canvas id="game" width="600" height="720" aria-label="Jump a Jump Game"></canvas>
+  </div>
+  <div class="hud">
+    <button id="restart" class="btn" title="Restart Game">Restart</button>
+  </div>
+  <div class="toast">Hold (or long press on touch) to charge power, release to jump</div>
+
+  <script>
+  (() => {
+    'use strict';
+
+    // ===== DOM Elements =====
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+    const restartBtn = document.getElementById('restart');
+
+    // ===== GAME CONFIGURATION =====
+    const CONFIG = {
+      // Canvas dimensions
+      canvas: {
+        width: canvas.width,
+        height: canvas.height,
+      },
+
+      // Platform configuration
+      platform: {
+        height: 16,           // Vertical size of platform
+        minWidth: 70,         // Minimum horizontal size
+        maxWidth: 100,        // Maximum horizontal size
+        edgeMargin: 40,       // Distance from screen edge to platform edge
+        minGap: 220,          // Minimum horizontal distance between platforms
+        maxGap: 320,          // Maximum horizontal distance between platforms
+        color: '#d0d0d0',     // Platform color
+        // Difficulty progression
+        easyMinWidth: 90,     // Trials 1-10: wider platforms
+        easyMaxWidth: 140,
+        hardMinWidth: 50,     // Trials 11-20: narrower platforms
+        hardMaxWidth: 80,
+      },
+
+      // Player (jumper) configuration
+      player: {
+        width: 24,            // Horizontal size
+        height: 46,           // Vertical size
+        color: '#000000',     // Player color
+        edgeMargin: 20,       // Initial position margin from left edge
+      },
+
+      // Physics configuration
+      physics: {
+        gravity: 1400,        // Acceleration downward (px/s²)
+        maxJumpSpeed: 950,    // Maximum jump velocity (px/s)
+        jumpAngle: -Math.PI / 3,  // Jump direction (~60° upward-right)
+        chargeCoefficient: 0.011,  // How much charge power affects speed
+        chargeGamma: 0.65,    // Non-linear charge curve
+      },
+
+      // World configuration
+      world: {
+        platformYOffset: 140,  // Distance from bottom to platform
+        scrollSpeed: 450,      // Platform alignment speed (px/s)
+      },
+
+      // Animation configuration
+      animation: {
+        chargeScale: 0.14,    // Squash effect during charge
+        minScaleY: 0.68,      // Minimum vertical compression
+        scaleBeta: 0.6,       // Horizontal/vertical relationship
+        springOmega: 11,      // Spring oscillation frequency
+        springZeta: 0.32,     // Spring damping
+      },
+    };
+
+    // ===== Calculated Constants =====
+    const CANVAS_W = CONFIG.canvas.width;
+    const CANVAS_H = CONFIG.canvas.height;
+    const PLATFORM_Y = CANVAS_H - CONFIG.world.platformYOffset;
+    // Left platform: centered at edgeMargin + half platform width
+    const PLATFORM_ANCHOR_X = CONFIG.platform.edgeMargin + CONFIG.platform.minWidth / 2;
+    // Right platform: centered at width - edgeMargin - half platform width
+    const PLATFORM_RIGHT_CENTER_X = CANVAS_W - CONFIG.platform.edgeMargin - CONFIG.platform.minWidth / 2;
+    // Player position: sits on top of platform (not overlapping)
+    const PLAYER_INITIAL_Y = PLATFORM_Y - CONFIG.platform.height - CONFIG.player.height / 2;
+
+    // ===== Game State =====
+    const gameState = {
+      trial: 0,                    // Current trial (0-19, 20 trials total)
+      successCount: 0,             // Number of successful landings
+      failureCount: 0,             // Number of failed attempts
+      lastFrameTime: performance.now(),
+      gameEnded: false,            // Game ended after 20 trials
+    };
+
+    // ===== Player Object =====
+    const player = {
+      x: 0,
+      y: 0,
+      vx: 0,
+      vy: 0,
+      scaleX: 1,
+      scaleY: 1,
+      state: 'idle',
+      chargeTime: 0,
+      spring: {
+        active: false,
+        time: 0,
+        amplitude: 0,
+      },
+
+      reset() {
+        this.x = PLATFORM_ANCHOR_X;
+        this.y = PLAYER_INITIAL_Y;
+        this.vx = 0;
+        this.vy = 0;
+        this.scaleX = 1;
+        this.scaleY = 1;
+        this.state = 'idle';
+        this.chargeTime = 0;
+        this.spring.active = false;
+        this.spring.time = 0;
+        
+        // Reset platforms for new trial
+        platformManager.reset();
+      },
+
+      startCharging() {
+        if (this.state !== 'idle') return;
+        this.state = 'charging';
+        this.chargeTime = 0;
+      },
+
+      releaseJump() {
+        if (this.state !== 'charging') return;
+
+        const rawSpeed = CONFIG.physics.chargeCoefficient *
+                        Math.pow(this.chargeTime * 1000, CONFIG.physics.chargeGamma) * 1000;
+        const speed = Math.min(CONFIG.physics.maxJumpSpeed, rawSpeed);
+
+        this.vx = Math.cos(CONFIG.physics.jumpAngle) * speed;
+        this.vy = Math.sin(CONFIG.physics.jumpAngle) * speed;
+        this.state = 'jumping';
+
+        this.spring.active = true;
+        this.spring.time = 0;
+        this.spring.amplitude = (1 - this.scaleY) * 0.95;
+      },
+
+      updateCharging(dt) {
+        this.chargeTime += dt;
+
+        const t = this.chargeTime;
+        const scaleY = Math.max(
+          1 - CONFIG.animation.chargeScale * Math.pow(t, CONFIG.physics.chargeGamma),
+          CONFIG.animation.minScaleY
+        );
+        const scaleX = Math.pow(1 / scaleY, CONFIG.animation.scaleBeta);
+
+        this.scaleY = scaleY;
+        this.scaleX = scaleX;
+      },
+
+      updateJumping(dt) {
+        this.vy += CONFIG.physics.gravity * dt;
+
+        this.x += this.vx * dt;
+        this.y += this.vy * dt;
+
+        const stretchFactor = 1 + clamp(-this.vy / 2400, -0.1, 0.1);
+        const airScaleX = stretchFactor;
+        const airScaleY = 1 / stretchFactor;
+
+        if (this.spring.active) {
+          this.spring.time += dt;
+          const { time, amplitude } = this.spring;
+          const w = CONFIG.animation.springOmega;
+          const z = CONFIG.animation.springZeta;
+          const wd = w * Math.sqrt(1 - z * z);
+
+          const rebound = 1 + amplitude * Math.exp(-z * w * time) * Math.cos(wd * time);
+          this.scaleY = rebound * airScaleY;
+          this.scaleX = Math.pow(1 / rebound, CONFIG.animation.scaleBeta) * airScaleX;
+
+          if (time > 0.85) {
+            this.spring.active = false;
+            this.scaleX = airScaleX;
+            this.scaleY = airScaleY;
+          }
+        } else {
+          this.scaleX = airScaleX;
+          this.scaleY = airScaleY;
+        }
+      },
+    };
+
+    // ===== Platform Management =====
+    const platformManager = {
+      platforms: [],
+
+      reset() {
+        this.platforms = [];
+
+        // Create left platform (fixed position at left edge)
+        this.platforms.push(this.createPlatform(
+          PLATFORM_ANCHOR_X,
+          CONFIG.platform.minWidth + 10
+        ));
+
+        // Create right platform (fixed position at right edge)
+        // Right platform is always at the same distance from right edge as left platform from left edge
+        this.platforms.push(this.createPlatform(
+          PLATFORM_RIGHT_CENTER_X,
+          this.randomWidth()
+        ));
+      },
+
+      createPlatform(centerX, width) {
+        return {
+          centerX: centerX,
+          y: PLATFORM_Y,
+          width: width,
+          height: CONFIG.platform.height,
+          angle: 0,  // For future tilted platforms
+
+          get left() { return this.centerX - this.width / 2; },
+          get right() { return this.centerX + this.width / 2; },
+          get top() { return this.y - this.height; },
+        };
+      },
+
+      randomWidth() {
+        // Determine difficulty based on current trial
+        let minW, maxW;
+        if (gameState.trial < 10) {
+          // Easy: trials 0-9
+          minW = CONFIG.platform.easyMinWidth;
+          maxW = CONFIG.platform.easyMaxWidth;
+        } else {
+          // Hard: trials 10-19
+          minW = CONFIG.platform.hardMinWidth;
+          maxW = CONFIG.platform.hardMaxWidth;
+        }
+        return minW + Math.random() * (maxW - minW);
+      },
+
+      randomGap() {
+        return CONFIG.platform.minGap +
+               Math.random() * (CONFIG.platform.maxGap - CONFIG.platform.minGap);
+      },
+
+      getCurrentPlatform() {
+        return this.platforms[0];
+      },
+
+      getTargetPlatform() {
+        return this.platforms[1];
+      },
+
+      scrollToAlign(dt) {
+        const target = this.getTargetPlatform();
+        const targetCenterX = PLATFORM_ANCHOR_X;
+
+        if (target.centerX > targetCenterX) {
+          const distance = CONFIG.world.scrollSpeed * dt;
+          const actualMove = Math.min(distance, target.centerX - targetCenterX);
+
+          this.platforms.forEach(p => p.centerX -= actualMove);
+          player.x -= actualMove;
+
+          return false;
+        } else {
+          const snapDelta = targetCenterX - target.centerX;
+          this.platforms.forEach(p => p.centerX += snapDelta);
+          player.x += snapDelta;
+
+          this.platforms.shift();
+          
+          // Alternate between left and right edges
+          // If current platform is at left edge, generate next at right edge, and vice versa
+          const currentPlatformX = this.platforms[0].centerX;
+          let newCenterX;
+          
+          if (currentPlatformX === PLATFORM_ANCHOR_X) {
+            // Current is at left, so next goes to right
+            newCenterX = PLATFORM_RIGHT_CENTER_X;
+          } else {
+            // Current is at right, so next goes to left
+            newCenterX = PLATFORM_ANCHOR_X;
+          }
+          
+          this.platforms.push(this.createPlatform(newCenterX, this.randomWidth()));
+
+          return true;
+        }
+      },
+
+      checkLanding() {
+        const target = this.getTargetPlatform();
+        // Calculate player's actual bottom edge (center + half height)
+        const playerBottom = player.y + CONFIG.player.height / 2;
+        const platformTop = target.top;
+        
+        // Calculate player's left and right edges
+        const playerLeft = player.x - CONFIG.player.width / 2;
+        const playerRight = player.x + CONFIG.player.width / 2;
+
+        // Detect landing when player's bottom edge reaches platform top
+        if (player.vy > 0 && playerBottom >= platformTop) {
+          // Check if ANY part of player overlaps with platform horizontally
+          if (playerRight >= target.left && playerLeft <= target.right) {
+            // Successful landing
+            gameState.successCount++;
+            gameState.trial++;
+            
+            // Continue to next trial (only end after 20 trials)
+            
+            // Position player correctly on platform
+            player.y = PLATFORM_Y - CONFIG.platform.height - CONFIG.player.height / 2;
+            player.vx = 0;
+            player.vy = 0;
+            player.scaleX = 1;
+            player.scaleY = 1;
+            return true;
+          }
+        }
+        
+        // Check if player fell off
+        if (player.vy > 0 && player.y > CANVAS_H + 100) {
+          // Only count as failure if we haven't reached 20 trials yet
+          if (gameState.trial < 20) {
+            gameState.failureCount++;
+            gameState.trial++;
+            
+            // Reset player to left platform for next trial
+            player.reset();
+          }
+          return false;
+        }
+        
+        return false;
+      },
+
+      checkFailure() {
+        const target = this.getTargetPlatform();
+        return player.y > CANVAS_H + 100 ||
+               (player.vy > 0 && player.y > target.y + 100);
+      },
+    };
+
+    // ===== Utility Functions =====
+    function clamp(value, min, max) {
+      return Math.max(min, Math.min(max, value));
+    }
+
+    // ===== CSV Export Function =====
+    function downloadResultsAsCSV() {
+      // Create CSV content
+      const timestamp = new Date().toLocaleString();
+      const csvContent = `Experiment Results
+Timestamp,${timestamp}
+Successful Jumps,${gameState.successCount}
+Failed Attempts,${gameState.failureCount}
+Total Trials,20
+Success Rate,${((gameState.successCount / 20) * 100).toFixed(1)}%`;
+
+      // Create blob and download
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      
+      link.setAttribute('href', url);
+      link.setAttribute('download', `experiment_results_${Date.now()}.csv`);
+      link.style.visibility = 'hidden';
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    // ===== Game Loop =====
+    function update(dt) {
+      // Don't update if experiment is already complete
+      if (gameState.gameEnded) return;
+
+      switch (player.state) {
+        case 'charging':
+          player.updateCharging(dt);
+          break;
+
+        case 'jumping':
+          player.updateJumping(dt);
+
+          if (platformManager.checkLanding()) {
+            player.state = 'scrolling';
+          }
+          // If player falls, just check and reset, don't enter 'dead' state
+          else if (player.y > CANVAS_H + 100) {
+            if (gameState.trial < 20) {
+              gameState.failureCount++;
+              gameState.trial++;
+              player.reset();
+            }
+          }
+          break;
+
+        case 'scrolling':
+          const alignmentComplete = platformManager.scrollToAlign(dt);
+          if (alignmentComplete) {
+            player.state = 'idle';
+          }
+          break;
+      }
+      
+      // Check if we've completed all 20 trials
+      if (gameState.trial >= 20 && !gameState.gameEnded) {
+        gameState.gameEnded = true;
+        downloadResultsAsCSV();  // Automatically download CSV
+      }
+    }
+
+    function render() {
+      ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
+
+      renderPlatforms();
+      renderPlayer();
+
+      if (player.state === 'dead') {
+        renderGameOver();
+      }
+    }
+
+    function renderPlatforms() {
+      ctx.fillStyle = CONFIG.platform.color;
+      platformManager.platforms.forEach(platform => {
+        ctx.fillRect(platform.left, platform.top, platform.width, platform.height);
+      });
+    }
+
+    function renderPlayer() {
+      ctx.save();
+      ctx.translate(player.x, player.y);
+      ctx.scale(player.scaleX, player.scaleY);
+
+      ctx.fillStyle = CONFIG.player.color;
+      const w = CONFIG.player.width;
+      const h = CONFIG.player.height;
+      ctx.fillRect(-w / 2, -h / 2, w, h);
+
+      ctx.restore();
+    }
+
+    function renderGameOver() {
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+      ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+
+      ctx.fillStyle = '#000000';
+      ctx.font = '700 32px ui-sans-serif, system-ui';
+      ctx.textAlign = 'center';
+      ctx.fillText('Game Over', CANVAS_W / 2, CANVAS_H / 2 - 20);
+
+      ctx.font = '600 16px ui-sans-serif, system-ui';
+      ctx.fillText('Click Restart to play again', CANVAS_W / 2, CANVAS_H / 2 + 30);
+    }
+
+    // ===== Input Handling =====
+    function handlePointerDown(e) {
+      if (player.state === 'idle') {
+        player.startCharging();
+      }
+    }
+
+    function handlePointerUp(e) {
+      if (player.state === 'charging') {
+        player.releaseJump();
+      }
+    }
+
+    canvas.addEventListener('pointerdown', handlePointerDown);
+    canvas.addEventListener('pointerup', handlePointerUp);
+    canvas.addEventListener('pointercancel', handlePointerUp);
+    canvas.addEventListener('touchstart', e => e.preventDefault(), { passive: false });
+
+    // ===== Game Control =====
+    function resetGame() {
+      gameState.trial = 0;
+      gameState.successCount = 0;
+      gameState.failureCount = 0;
+      gameState.gameEnded = false;
+      player.reset();
+    }
+
+    restartBtn.addEventListener('click', resetGame);
+
+    // ===== Main Loop =====
+    function gameLoop(currentTime) {
+      const dt = Math.min(0.033, (currentTime - gameState.lastFrameTime) / 1000);
+      gameState.lastFrameTime = currentTime;
+
+      if (player.state !== 'dead') {
+        update(dt);
+      }
+      render();
+
+      requestAnimationFrame(gameLoop);
+    }
+
+    // ===== Start Game =====
+    resetGame();
+    requestAnimationFrame(gameLoop);
+  })();
+  </script>
+</body>
+</html>
