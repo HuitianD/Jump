@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Jump Game · Replay Viewer</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 20px;
+      background: #f5f5f5;
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+      color: #111;
+    }
+    h2 { margin: 0 0 16px; font-size: 20px; }
+
+    /* ── Top controls ── */
+    .controls {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+    select {
+      flex: 1;
+      min-width: 240px;
+      padding: 7px 10px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 14px;
+      background: #fff;
+    }
+    .btn {
+      padding: 7px 16px;
+      border-radius: 6px;
+      background: #333;
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      font-weight: 700;
+      font-size: 14px;
+      white-space: nowrap;
+      transition: background 0.15s;
+    }
+    .btn:hover:not(:disabled) { background: #555; }
+    .btn:disabled { background: #aaa; cursor: default; }
+    .speed-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      white-space: nowrap;
+      font-size: 14px;
+    }
+    #speed-label { min-width: 30px; font-weight: 700; }
+
+    /* ── Canvas area ── */
+    .canvas-wrap {
+      display: inline-block;
+      line-height: 0;
+    }
+    canvas {
+      display: block;
+      background: #fff;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px 8px 0 0;
+      box-shadow: 0 4px 12px rgba(0,0,0,.1);
+    }
+    .progress-track {
+      height: 6px;
+      background: #e0e0e0;
+      border-radius: 0 0 6px 6px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      background: #22c55e;
+      transition: width 0.25s;
+    }
+
+    /* ── Playback row ── */
+    .playback {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-top: 12px;
+    }
+    #status-text {
+      font-size: 13px;
+      color: #666;
+      margin-left: 4px;
+    }
+
+    /* ── Stats ── */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-top: 16px;
+      max-width: 604px;
+    }
+    .stat-card {
+      background: #fff;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      padding: 12px 10px;
+      text-align: center;
+    }
+    .stat-label { font-size: 11px; color: #888; margin-bottom: 4px; }
+    .stat-value { font-size: 22px; font-weight: 700; }
+
+    /* ── Participant search ── */
+    .search-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+    }
+    .search-row label { font-size: 14px; font-weight: 600; white-space: nowrap; }
+    .search-row input[type="text"] {
+      padding: 7px 10px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 14px;
+      width: 180px;
+    }
+    .btn-ghost {
+      padding: 7px 14px;
+      border-radius: 6px;
+      background: transparent;
+      color: #555;
+      border: 1px solid #ccc;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background 0.15s;
+    }
+    .btn-ghost:hover { background: #eee; }
+    #search-count { font-size: 13px; color: #888; }
+
+    /* ── Error banner ── */
+    #error-banner {
+      display: none;
+      background: #fee2e2;
+      color: #b91c1c;
+      border: 1px solid #fca5a5;
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin-bottom: 14px;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+
+<h2>Jump Game — Replay Viewer</h2>
+
+<div id="error-banner"></div>
+
+<!-- Participant ID search -->
+<div class="search-row">
+  <label id="pid-search-label" for="pid-search">Participant ID</label>
+  <input id="pid-search" type="text" placeholder="e.g. P042" autocomplete="off" spellcheck="false" />
+  <button class="btn" id="search-btn">Search</button>
+  <button class="btn-ghost" id="show-all-btn">Show All</button>
+  <span id="search-count"></span>
+</div>
+
+<!-- Session selector -->
+<div class="controls">
+  <select id="session-select"><option value="">Loading sessions…</option></select>
+  <button class="btn" id="load-btn" disabled>Load &amp; Watch</button>
+  <div class="speed-wrap">
+    <label for="speed-slider">Speed</label>
+    <input type="range" id="speed-slider" min="0" max="3" step="1" value="1" />
+    <span id="speed-label">1×</span>
+  </div>
+</div>
+
+<!-- Canvas -->
+<div class="canvas-wrap">
+  <canvas id="game" width="600" height="720"></canvas>
+  <div class="progress-track">
+    <div class="progress-fill" id="progress-fill"></div>
+  </div>
+</div>
+
+<!-- Playback controls -->
+<div class="playback">
+  <button class="btn" id="play-btn"    disabled>Play</button>
+  <button class="btn" id="pause-btn"   disabled>Pause</button>
+  <button class="btn" id="restart-btn" disabled>Restart</button>
+  <span id="status-text">No session loaded</span>
+</div>
+
+<!-- Stats -->
+<div class="stats">
+  <div class="stat-card">
+    <div class="stat-label">Successes</div>
+    <div class="stat-value" id="stat-success">—</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Failures</div>
+    <div class="stat-value" id="stat-failure">—</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Avg Reaction (ms)</div>
+    <div class="stat-value" id="stat-reaction">—</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Avg Charge (ms)</div>
+    <div class="stat-value" id="stat-charge">—</div>
+  </div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  // ── RESEARCHER CONFIG — must match jump1.html ────────────────────────────
+  const PARTICIPANT_ID_LABEL = 'Participant ID'; // change to match your study
+
+  // ── DOM ──────────────────────────────────────────────────────────────────
+  const canvas      = document.getElementById('game');
+  const ctx         = canvas.getContext('2d');
+  const sessionSel  = document.getElementById('session-select');
+  const loadBtn     = document.getElementById('load-btn');
+  const pidSearchLabel = document.getElementById('pid-search-label');
+  const pidSearch   = document.getElementById('pid-search');
+  const searchBtn   = document.getElementById('search-btn');
+  const showAllBtn  = document.getElementById('show-all-btn');
+  const searchCount = document.getElementById('search-count');
+
+  // Apply config label
+  pidSearchLabel.textContent = PARTICIPANT_ID_LABEL;
+  const speedSlider = document.getElementById('speed-slider');
+  const speedLabel  = document.getElementById('speed-label');
+  const playBtn     = document.getElementById('play-btn');
+  const pauseBtn    = document.getElementById('pause-btn');
+  const restartBtn  = document.getElementById('restart-btn');
+  const statusText  = document.getElementById('status-text');
+  const progressFill = document.getElementById('progress-fill');
+  const errorBanner = document.getElementById('error-banner');
+
+  // ── CONFIG (exact copy from jump1.html) ──────────────────────────────────
+  const CANVAS_W = 600;
+  const CANVAS_H = 720;
+  const PLATFORM_Y          = CANVAS_H - 140;            // 580
+  const PLATFORM_ANCHOR_X   = 40 + 70 / 2;              // 75
+  const PLATFORM_RIGHT_CENTER_X = CANVAS_W - 40 - 70 / 2; // 525
+  const PLAYER_INITIAL_Y    = PLATFORM_Y - 16 - 50 / 2;  // 539
+  const TOTAL_TRIALS        = 30;
+
+  const PHYSICS = {
+    gravity:           1400,
+    maxJumpSpeed:       950,
+    jumpAngle:         -Math.PI / 3,
+    chargeCoefficient:  0.011,
+    chargeGamma:        0.65,
+  };
+  const ANIM = {
+    chargeScale: 0.14,
+    minScaleY:   0.68,
+    scaleBeta:   0.6,
+    springOmega: 11,
+    springZeta:  0.32,
+  };
+  const PLATFORM_H     = 16;
+  const PLATFORM_COLOR = '#d0d0d0';
+  const PLAYER_W       = 25;
+  const PLAYER_H       = 50;
+  const SCROLL_SPEED   = 450;
+
+  const MOVING_CFG = { amplitude: 60, speed: 2.2, topMargin: 24, bottomMargin: 20 };
+
+  const PHASES = [
+    { start:  1, end: 10, movingTarget: false },
+    { start: 11, end: 20, movingTarget: false },
+    { start: 21, end: 30, movingTarget: true  },
+  ];
+
+  const SPEED_OPTIONS = [0.5, 1, 2, 3];
+
+  // ── Utility ──────────────────────────────────────────────────────────────
+  const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
+  function phaseFor(trialIndex) {
+    const n = clamp(trialIndex + 1, 1, TOTAL_TRIALS);
+    return PHASES.find(p => n >= p.start && n <= p.end) ?? PHASES[PHASES.length - 1];
+  }
+
+  function avg(arr) {
+    if (!arr.length) return '—';
+    return Math.round(arr.reduce((a, b) => a + b, 0) / arr.length);
+  }
+
+  // ── Replay state ─────────────────────────────────────────────────────────
+  const RS = {
+    active:       false,
+    paused:       false,
+    currentTrial: 0,
+    speed:        1,
+    session:      null,
+    lastOutcome:  null,   // 'success' | 'failure' | null — shown top-right
+  };
+
+  // Pause/resume via promise
+  let _unpauseResolve = null;
+
+  function pauseIfNeeded() {
+    if (!RS.paused) return Promise.resolve();
+    return new Promise(resolve => { _unpauseResolve = resolve; });
+  }
+
+  function doUnpause() {
+    RS.paused = false;
+    if (_unpauseResolve) { _unpauseResolve(); _unpauseResolve = null; }
+  }
+
+  // Abortable sleep: wall-clock ms, respects pause and active flag
+  async function sleep(ms) {
+    if (ms <= 0) return;
+    const wall = ms / RS.speed;
+    const end = performance.now() + wall;
+    while (performance.now() < end) {
+      if (!RS.active) return;
+      await pauseIfNeeded();
+      await new Promise(r => setTimeout(r, 10));
+    }
+  }
+
+  // Wait until predicate returns true (or replay aborted)
+  async function waitUntil(pred) {
+    while (!pred() && RS.active) {
+      await pauseIfNeeded();
+      await new Promise(r => setTimeout(r, 10));
+    }
+  }
+
+  // Trial-done signal (set before starting jump, resolved by game loop)
+  let _trialDoneResolve = null;
+
+  function armTrialDone() {
+    return new Promise(resolve => { _trialDoneResolve = resolve; });
+  }
+
+  function fireTrialDone(outcome) {
+    if (_trialDoneResolve) {
+      const r = _trialDoneResolve;
+      _trialDoneResolve = null;
+      r(outcome);
+    }
+  }
+
+  function abortReplay() {
+    RS.active = false;
+    doUnpause();
+    fireTrialDone('abort');
+  }
+
+  // ── Player ───────────────────────────────────────────────────────────────
+  const player = {
+    x: PLATFORM_ANCHOR_X, y: PLAYER_INITIAL_Y,
+    vx: 0, vy: 0,
+    scaleX: 1, scaleY: 1,
+    state: 'idle',        // idle | charging | jumping | scrolling
+    chargeTime: 0,
+    spring: { active: false, time: 0, amplitude: 0 },
+
+    resetPosition() {
+      this.x = PLATFORM_ANCHOR_X;
+      this.y = PLAYER_INITIAL_Y;
+      this.vx = 0; this.vy = 0;
+      this.scaleX = 1; this.scaleY = 1;
+      this.state = 'idle';
+      this.chargeTime = 0;
+      this.spring.active = false;
+      this.spring.time = 0;
+    },
+
+    updateCharging(dt) {
+      this.chargeTime += dt;
+      const sy = Math.max(
+        1 - ANIM.chargeScale * Math.pow(this.chargeTime, PHYSICS.chargeGamma),
+        ANIM.minScaleY
+      );
+      this.scaleY = sy;
+      this.scaleX = Math.pow(1 / sy, ANIM.scaleBeta);
+    },
+
+    updateJumping(dt) {
+      this.vy += PHYSICS.gravity * dt;
+      this.x  += this.vx * dt;
+      this.y  += this.vy * dt;
+
+      const sf = 1 + clamp(-this.vy / 2400, -0.1, 0.1);
+
+      if (this.spring.active) {
+        this.spring.time += dt;
+        const { time, amplitude } = this.spring;
+        const w  = ANIM.springOmega, z = ANIM.springZeta;
+        const wd = w * Math.sqrt(1 - z * z);
+        const r  = 1 + amplitude * Math.exp(-z * w * time) * Math.cos(wd * time);
+        this.scaleY = r / sf;
+        this.scaleX = Math.pow(1 / r, ANIM.scaleBeta) * sf;
+        if (time > 0.85) {
+          this.spring.active = false;
+          this.scaleX = sf; this.scaleY = 1 / sf;
+        }
+      } else {
+        this.scaleX = sf; this.scaleY = 1 / sf;
+      }
+    },
+  };
+
+  // ── Platforms ────────────────────────────────────────────────────────────
+  function makePlatform(centerX, width, moving) {
+    const motion = moving ? (() => {
+      const amp = MOVING_CFG.amplitude;
+      return {
+        amplitude: amp,
+        speed:     MOVING_CFG.speed,
+        minY: Math.max(PLATFORM_H + MOVING_CFG.topMargin,    PLATFORM_Y - amp),
+        maxY: Math.min(CANVAS_H - MOVING_CFG.bottomMargin,   PLATFORM_Y + amp),
+        phase: Math.random() * Math.PI * 2,
+      };
+    })() : null;
+
+    return {
+      centerX, width, height: PLATFORM_H,
+      baseY: PLATFORM_Y, y: PLATFORM_Y,
+      motion,
+      get left()  { return this.centerX - this.width / 2; },
+      get right() { return this.centerX + this.width / 2; },
+      get top()   { return this.y - this.height; },
+      tick(dt, active) {
+        if (!this.motion || !active) { this.y = this.baseY; return; }
+        this.motion.phase += dt * this.motion.speed;
+        this.y = clamp(
+          this.baseY + Math.sin(this.motion.phase) * this.motion.amplitude,
+          this.motion.minY, this.motion.maxY
+        );
+      },
+    };
+  }
+
+  // platList[0] = current (left), platList[1] = target (right)
+  let platList = [];
+
+  function setupPlatforms(trialIndex, targetWidth) {
+    const moving = phaseFor(trialIndex).movingTarget;
+    platList = [
+      makePlatform(PLATFORM_ANCHOR_X,       80,          false),
+      makePlatform(PLATFORM_RIGHT_CENTER_X, targetWidth, moving),
+    ];
+  }
+
+  function updatePlatforms(dt) {
+    platList.forEach((p, i) => p.tick(dt, i !== 0 && player.state !== 'scrolling'));
+  }
+
+  // Returns true on successful landing
+  function checkLanding() {
+    const tgt = platList[1];
+    if (!tgt) return false;
+    if (player.vy <= 0) return false;
+    if (player.y + PLAYER_H / 2 < tgt.top) return false;
+    const pl = player.x - PLAYER_W / 2;
+    const pr = player.x + PLAYER_W / 2;
+    if (pr >= tgt.left && pl <= tgt.right && player.x >= tgt.left && player.x <= tgt.right) {
+      player.y  = PLATFORM_Y - PLATFORM_H - PLAYER_H / 2;
+      player.vx = 0; player.vy = 0;
+      player.scaleX = 1; player.scaleY = 1;
+      return true;
+    }
+    return false;
+  }
+
+  // Scrolls platforms left until target aligns with PLATFORM_ANCHOR_X.
+  // Returns true when scroll is complete.
+  function scrollStep(dt) {
+    const tgt = platList[1];
+    if (!tgt) return true;
+    const diff = tgt.centerX - PLATFORM_ANCHOR_X;
+    if (diff > 0) {
+      const move = Math.min(SCROLL_SPEED * dt, diff);
+      platList.forEach(p => p.centerX -= move);
+      player.x -= move;
+      return false;
+    }
+    // Snap & promote
+    const snap = PLATFORM_ANCHOR_X - tgt.centerX;
+    platList.forEach(p => p.centerX += snap);
+    player.x += snap;
+    platList.shift();
+    // Append a placeholder right platform (overwritten at next trial setup)
+    platList.push(makePlatform(PLATFORM_RIGHT_CENTER_X, 80, false));
+    return true;
+  }
+
+  // ── Game loop ─────────────────────────────────────────────────────────────
+  let lastT = performance.now();
+
+  function update(dt) {
+    updatePlatforms(dt);
+    switch (player.state) {
+      case 'charging':
+        player.updateCharging(dt);
+        break;
+
+      case 'jumping':
+        player.updateJumping(dt);
+        if (checkLanding()) {
+          player.state = 'scrolling';
+        } else if (player.y > CANVAS_H + 100) {
+          player.resetPosition();
+          fireTrialDone('failure');
+        }
+        break;
+
+      case 'scrolling':
+        if (scrollStep(dt)) {
+          player.state = 'idle';
+          fireTrialDone('success');
+        }
+        break;
+    }
+  }
+
+  function render() {
+    ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
+
+    // Platforms
+    ctx.fillStyle = PLATFORM_COLOR;
+    platList.forEach(p => ctx.fillRect(p.left, p.top, p.width, p.height));
+
+    // Player
+    ctx.save();
+    ctx.translate(player.x, player.y);
+    ctx.scale(player.scaleX, player.scaleY);
+    ctx.fillStyle = '#000';
+    ctx.fillRect(-PLAYER_W / 2, -PLAYER_H / 2, PLAYER_W, PLAYER_H);
+    ctx.restore();
+
+    // ── Overlay (only when a session is loaded) ──
+    if (RS.session) {
+      const trial = RS.currentTrial;
+
+      // Top-left: trial counter
+      ctx.fillStyle = 'rgba(0,0,0,0.6)';
+      ctx.font = 'bold 16px ui-sans-serif, system-ui';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'top';
+      ctx.fillText(`Trial ${trial} / ${TOTAL_TRIALS}`, 12, 10);
+
+      // Top-right: outcome icon
+      if (RS.lastOutcome) {
+        ctx.font = 'bold 22px ui-sans-serif, system-ui';
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'top';
+        ctx.fillStyle = RS.lastOutcome === 'success' ? '#22c55e' : '#ef4444';
+        ctx.fillText(RS.lastOutcome === 'success' ? '✓' : '✗', CANVAS_W - 12, 10);
+      }
+    }
+  }
+
+  function gameLoop(now) {
+    const dt = Math.min(0.033, (now - lastT) / 1000);
+    lastT = now;
+    if (RS.active && !RS.paused) update(dt);
+    render();
+    requestAnimationFrame(gameLoop);
+  }
+  requestAnimationFrame(gameLoop);
+
+  // ── Replay sequence ───────────────────────────────────────────────────────
+  async function replaySession(trials) {
+    RS.active = true;
+    RS.lastOutcome = null;
+
+    for (let i = 0; i < trials.length; i++) {
+      if (!RS.active) break;
+
+      const rec = trials[i];
+      RS.currentTrial = i + 1;
+      progressFill.style.width = `${(i / TOTAL_TRIALS) * 100}%`;
+      statusText.textContent = `Trial ${i + 1} / ${TOTAL_TRIALS}`;
+
+      // 1. Setup
+      const targetWidth = rec.targetPlatformWidth ?? 80;
+      setupPlatforms(i, targetWidth);
+      player.resetPosition();
+
+      // 2. Idle wait (landingToPressMs)
+      await sleep(rec.landingToPressMs ?? 500);
+      if (!RS.active) break;
+
+      // 3. Charge
+      player.state = 'charging';
+      player.chargeTime = 0;
+      player.scaleX = 1; player.scaleY = 1;
+      await sleep(rec.pressToJumpMs ?? 100);
+      if (!RS.active) break;
+
+      // 4. Jump — arm signal BEFORE changing state
+      const trialDone = armTrialDone();
+      const chargeTime = (rec.pressToJumpMs ?? 100) / 1000;
+      const rawSpeed   = PHYSICS.chargeCoefficient *
+                         Math.pow(chargeTime * 1000, PHYSICS.chargeGamma) * 1000;
+      const jumpSpeed  = Math.min(PHYSICS.maxJumpSpeed, rawSpeed);
+      player.vx = Math.cos(PHYSICS.jumpAngle) * jumpSpeed;
+      player.vy = Math.sin(PHYSICS.jumpAngle) * jumpSpeed;
+      player.state = 'jumping';
+      player.spring.active    = true;
+      player.spring.time      = 0;
+      player.spring.amplitude = (1 - player.scaleY) * 0.95;
+
+      // 5. Wait for physics to resolve
+      const outcome = await trialDone;
+      if (outcome === 'abort' || !RS.active) break;
+
+      // outcome 'success': scrollToAlign already finished (fired after scroll)
+      RS.lastOutcome = outcome;
+
+      // 6. Inter-trial gap
+      await sleep(600);
+    }
+
+    if (RS.active) {
+      // Completed all trials normally
+      RS.currentTrial = TOTAL_TRIALS;
+      progressFill.style.width = '100%';
+      statusText.textContent = 'Replay complete';
+    }
+    RS.active = false;
+    setPlaybackUI(false, true);
+  }
+
+  // ── UI helpers ────────────────────────────────────────────────────────────
+  function setPlaybackUI(playing, finished) {
+    playBtn.disabled    = playing;
+    pauseBtn.disabled   = !playing;
+    restartBtn.disabled = !playing && !finished;
+    if (finished && !playing) {
+      playBtn.textContent = 'Replay';
+      playBtn.disabled = false;
+    }
+  }
+
+  function showStats(session) {
+    document.getElementById('stat-success').textContent  = session.successCount ?? '—';
+    document.getElementById('stat-failure').textContent  = session.failureCount ?? '—';
+    const trials = session.trials || [];
+    const reactions = trials.map(t => t.landingToPressMs).filter(v => v != null);
+    const charges   = trials.map(t => t.pressToJumpMs).filter(v => v != null);
+    document.getElementById('stat-reaction').textContent = avg(reactions);
+    document.getElementById('stat-charge').textContent   = avg(charges);
+  }
+
+  function startReplay() {
+    if (!RS.session) return;
+    RS.paused = false;
+    RS.lastOutcome = null;
+    RS.currentTrial = 0;
+    progressFill.style.width = '0%';
+    player.resetPosition();
+    setupPlatforms(0, 80);
+    setPlaybackUI(true, false);
+    playBtn.textContent = 'Playing…';
+    replaySession(RS.session.trials || []);
+  }
+
+  // ── Speed slider ──────────────────────────────────────────────────────────
+  speedSlider.addEventListener('input', () => {
+    RS.speed = SPEED_OPTIONS[+speedSlider.value];
+    speedLabel.textContent = RS.speed + '×';
+  });
+
+  // ── Load & Watch ──────────────────────────────────────────────────────────
+  loadBtn.addEventListener('click', async () => {
+    const id = sessionSel.value;
+    if (!id) return;
+    loadBtn.disabled = true;
+    loadBtn.textContent = 'Loading…';
+    try {
+      const res = await fetch(`http://localhost:3000/api/results/${id}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const session = await res.json();
+
+      abortReplay();                // stop any running replay
+      RS.session = session;
+      RS.currentTrial = 0;
+      RS.lastOutcome  = null;
+
+      showStats(session);
+      progressFill.style.width = '0%';
+      player.resetPosition();
+      setupPlatforms(0, 80);
+
+      playBtn.textContent = 'Play';
+      playBtn.disabled    = false;
+      pauseBtn.disabled   = true;
+      restartBtn.disabled = true;
+      statusText.textContent = 'Ready — press Play';
+    } catch (e) {
+      alert('Failed to load session: ' + e.message);
+    } finally {
+      loadBtn.disabled = false;
+      loadBtn.textContent = 'Load & Watch';
+    }
+  });
+
+  // ── Play ──────────────────────────────────────────────────────────────────
+  playBtn.addEventListener('click', () => {
+    abortReplay();
+    // Give the abort a tick to propagate, then start fresh
+    setTimeout(startReplay, 50);
+  });
+
+  // ── Pause / Resume ────────────────────────────────────────────────────────
+  pauseBtn.addEventListener('click', () => {
+    if (RS.paused) {
+      doUnpause();
+      pauseBtn.textContent = 'Pause';
+      statusText.textContent = `Trial ${RS.currentTrial} / ${TOTAL_TRIALS}`;
+    } else {
+      RS.paused = true;
+      pauseBtn.textContent = 'Resume';
+      statusText.textContent = 'Paused';
+    }
+  });
+
+  // ── Restart ───────────────────────────────────────────────────────────────
+  restartBtn.addEventListener('click', () => {
+    abortReplay();
+    setTimeout(startReplay, 60);
+  });
+
+  // ── Session store + dropdown helpers ─────────────────────────────────────
+  let allSessions = [];
+
+  function optionText(s, totalCount) {
+    const idx  = allSessions.indexOf(s);
+    const num  = totalCount - idx;
+    const pid  = s.participantId ? `[${s.participantId}]` : '[no ID]';
+    const date = new Date(s.submittedAt).toLocaleString();
+    const pct  = Math.round((s.successRate ?? 0) * 100);
+    return `${pid} — Session #${num} — ${date} — ${s.successCount}/30 success — ${pct}%`;
+  }
+
+  function populateDropdown(subset) {
+    sessionSel.innerHTML = '';
+    if (subset.length === 0) {
+      sessionSel.innerHTML = '<option value="">No matching sessions</option>';
+      loadBtn.disabled = true;
+      searchCount.textContent = '0 sessions';
+      return;
+    }
+    subset.forEach(s => {
+      const opt = document.createElement('option');
+      opt.value = s._id;
+      opt.textContent = optionText(s, allSessions.length);
+      sessionSel.appendChild(opt);
+    });
+    loadBtn.disabled = false;
+    searchCount.textContent = `${subset.length} session${subset.length !== 1 ? 's' : ''}`;
+  }
+
+  function filterSessions() {
+    const query = pidSearch.value.trim().toLowerCase();
+    if (!query) { populateDropdown(allSessions); return; }
+    const filtered = allSessions.filter(s =>
+      (s.participantId || '').toLowerCase().includes(query)
+    );
+    populateDropdown(filtered);
+  }
+
+  searchBtn.addEventListener('click', filterSessions);
+  pidSearch.addEventListener('keydown', e => { if (e.key === 'Enter') filterSessions(); });
+  showAllBtn.addEventListener('click', () => {
+    pidSearch.value = '';
+    populateDropdown(allSessions);
+  });
+
+  // ── Fetch session list on load ────────────────────────────────────────────
+  (async () => {
+    try {
+      const res = await fetch('http://localhost:3000/api/results');
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      allSessions = await res.json();
+
+      if (allSessions.length === 0) {
+        sessionSel.innerHTML = '<option value="">No sessions found</option>';
+        searchCount.textContent = '0 sessions';
+        return;
+      }
+
+      populateDropdown(allSessions);
+    } catch {
+      errorBanner.style.display = 'block';
+      errorBanner.textContent =
+        'Could not connect to server. Make sure npm start is running.';
+      sessionSel.innerHTML = '<option value="">Could not load sessions</option>';
+    }
+  })();
+
+  // Initial canvas render (idle state)
+  setupPlatforms(0, 80);
+
+})();
+</script>
+</body>
+</html>
