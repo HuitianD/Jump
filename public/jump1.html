@@ -155,41 +155,70 @@
       // Platform configuration
       platform: {
         height: 16,           // Vertical size of platform
-        minWidth: 70,         // Minimum horizontal size
-        maxWidth: 100,        // Maximum horizontal size
+        currentWidth: 80,     // Width of the starting platform
         edgeMargin: 40,       // Distance from screen edge to platform edge
         minGap: 220,          // Minimum horizontal distance between platforms
         maxGap: 320,          // Maximum horizontal distance between platforms
         color: '#d0d0d0',     // Platform color
         moving: {
-          amplitude: 60,      // Vertical travel distance (px)
-          speed: 2.2,         // Oscillation speed (radians per second)
-          topMargin: 24,      // Minimum gap from top edge when moving
-          bottomMargin: 20,   // Minimum gap from bottom edge when moving
+          vertical: {
+            amplitude: 62,
+            speed: 2.15,
+          },
+          horizontal: {
+            amplitude: 56,
+            speed: 1.65,
+          },
         },
       },
 
       // Trial configuration
       trials: {
-        total: 30,
+        total: 18,
         phases: [
           {
             start: 1,
-            end: 10,
-            platformWidth: { min: 120, max: 140 },
-            movingTarget: false,
+            end: 3,
+            platformWidth: { min: 132, max: 150 },
+            targetLayout: 'single',
+            motionType: 'none',
           },
           {
-            start: 11,
-            end: 20,
-            platformWidth: { min: 50, max: 80 },
-            movingTarget: false,
+            start: 4,
+            end: 6,
+            platformWidth: { min: 102, max: 120 },
+            targetLayout: 'single',
+            motionType: 'none',
           },
           {
-            start: 21,
-            end: 30,
-            platformWidth: { min: 50, max: 80 },
-            movingTarget: true,
+            start: 7,
+            end: 9,
+            platformWidth: { min: 94, max: 112 },
+            targetLayout: 'single',
+            motionType: 'vertical',
+          },
+          {
+            start: 10,
+            end: 12,
+            platformWidth: { min: 92, max: 110 },
+            targetLayout: 'single',
+            motionType: 'horizontal',
+          },
+          {
+            start: 13,
+            end: 15,
+            platformWidth: { min: 84, max: 100 },
+            targetLayout: 'dual',
+            motionType: 'none',
+            dualXOffset: 150,
+          },
+          {
+            start: 16,
+            end: 18,
+            platformWidth: { min: 78, max: 94 },
+            targetLayout: 'dual',
+            motionType: 'vertical',
+            dualXOffset: 120,
           },
         ],
       },
@@ -198,7 +227,9 @@
       player: {
         width: 25,            // Horizontal size
         height: 50,           // Vertical size
-        color: '#000000',     // Player color
+        color: '#000000',     // Default player color
+        chargeColor: '#FFC20A', // High-luminance charge color for strong visual contrast
+        maxVisualChargeTime: 1.2, // Seconds before charge color reaches full intensity
         edgeMargin: 20,       // Initial position margin from left edge
       },
 
@@ -232,9 +263,9 @@
     const CANVAS_H = CONFIG.canvas.height;
     const PLATFORM_Y = CANVAS_H - CONFIG.world.platformYOffset;
     // Left platform: centered at edgeMargin + half platform width
-    const PLATFORM_ANCHOR_X = CONFIG.platform.edgeMargin + CONFIG.platform.minWidth / 2;
+    const PLATFORM_ANCHOR_X = CONFIG.platform.edgeMargin + CONFIG.platform.currentWidth / 2;
     // Right platform: centered at width - edgeMargin - half platform width
-    const PLATFORM_RIGHT_CENTER_X = CANVAS_W - CONFIG.platform.edgeMargin - CONFIG.platform.minWidth / 2;
+    const PLATFORM_RIGHT_CENTER_X = CANVAS_W - CONFIG.platform.edgeMargin - CONFIG.platform.currentWidth / 2;
     // Player position: sits on top of platform (not overlapping)
     const PLAYER_INITIAL_Y = PLATFORM_Y - CONFIG.platform.height - CONFIG.player.height / 2;
     const TOTAL_TRIALS = CONFIG.trials.total;
@@ -263,6 +294,11 @@
       return matchingPhase ?? CONFIG.trials.phases[CONFIG.trials.phases.length - 1];
     }
 
+    function seededUnit(trialIndex) {
+      const value = Math.sin((trialIndex + 1) * 12.9898) * 43758.5453;
+      return value - Math.floor(value);
+    }
+
     // ===== Player Object =====
     const player = {
       x: 0,
@@ -279,7 +315,7 @@
         amplitude: 0,
       },
 
-      reset() {
+      respawn() {
         this.x = PLATFORM_ANCHOR_X;
         this.y = PLAYER_INITIAL_Y;
         this.vx = 0;
@@ -290,13 +326,17 @@
         this.chargeTime = 0;
         this.spring.active = false;
         this.spring.time = 0;
+        this.spring.amplitude = 0;
 
         gameState.lastPressTimestamp = null;
         gameState.currentTrialRecord = null;
+        gameState.lastLandingTimestamp = performance.now();
+      },
 
+      reset() {
         // Reset platforms for new trial
         platformManager.reset();
-        gameState.lastLandingTimestamp = performance.now();
+        this.respawn();
       },
 
       startCharging() {
@@ -414,167 +454,202 @@
     // ===== Platform Management =====
     const platformManager = {
       platforms: [],
+      currentPlatform: null,
+      targetPlatforms: [],
+      motionGroup: null,
+      scrollAnchor: null,
 
       reset() {
-        this.platforms = [];
-
-        // Create left platform (fixed position at left edge)
-        this.platforms.push(this.createPlatform(
-          PLATFORM_ANCHOR_X,
-          CONFIG.platform.minWidth + 10,
-          { enableMotion: false }
-        ));
-
-        // Create right platform (fixed position at right edge)
         const upcomingDifficulty = getTrialDifficulty(gameState.trial);
-        this.platforms.push(this.createPlatform(
-          PLATFORM_RIGHT_CENTER_X,
-          this.randomWidth(upcomingDifficulty),
-          { enableMotion: upcomingDifficulty.movingTarget }
-        ));
+        const targetWidth = this.widthForTrial(upcomingDifficulty, gameState.trial);
+
+        this.currentPlatform = this.createPlatform(
+          PLATFORM_ANCHOR_X,
+          PLATFORM_Y,
+          CONFIG.platform.currentWidth,
+          { role: 'current' }
+        );
+
+        if (upcomingDifficulty.targetLayout === 'dual') {
+          const dualXOffset = upcomingDifficulty.dualXOffset ?? 120;
+          this.targetPlatforms = [
+            this.createPlatform(
+              PLATFORM_RIGHT_CENTER_X - dualXOffset,
+              PLATFORM_Y,
+              targetWidth,
+              { role: 'target', phaseOffset: 0 }
+            ),
+            this.createPlatform(
+              PLATFORM_RIGHT_CENTER_X,
+              PLATFORM_Y,
+              targetWidth,
+              { role: 'alternate', phaseOffset: Math.PI * 0.6 }
+            ),
+          ];
+        } else {
+          this.targetPlatforms = [
+            this.createPlatform(
+              PLATFORM_RIGHT_CENTER_X,
+              PLATFORM_Y,
+              targetWidth,
+              { role: 'target' }
+            ),
+          ];
+        }
+
+        this.motionGroup = this.createMotionGroup(upcomingDifficulty, gameState.trial);
+        this.scrollAnchor = this.getTargetPlatform();
+        this.updateMotionPositions();
+        this.syncPlatforms();
       },
 
-      createPlatform(centerX, width, options = {}) {
-        const baseY = PLATFORM_Y;
-        const motion = options.enableMotion
-          ? this.createMotionSettings(baseY, options.motionPreset)
-          : null;
-
+      createPlatform(centerX, baseY, width, options = {}) {
         return {
+          baseCenterX: centerX,
           centerX,
           baseY,
           y: baseY,
           width,
           height: CONFIG.platform.height,
-          angle: 0,
-          motion,
-          get isMoving() { return Boolean(this.motion); },
+          role: options.role ?? 'target',
+          phaseOffset: options.phaseOffset ?? 0,
 
           get left() { return this.centerX - this.width / 2; },
           get right() { return this.centerX + this.width / 2; },
           get top() { return this.y - this.height; },
-          updateMotion(dt, isActive) {
-            if (!this.motion) {
-              this.y = this.baseY;
-              return;
-            }
-            if (!isActive) {
-              this.y = this.baseY;
-              return;
-            }
-            this.motion.phase += dt * this.motion.speed;
-            const offset = Math.sin(this.motion.phase) * this.motion.amplitude;
-            const intendedY = this.baseY + offset;
-            this.y = clamp(intendedY, this.motion.minY, this.motion.maxY);
-          },
         };
       },
 
-      createMotionSettings(baseY, override) {
-        const motionConfig = override ?? CONFIG.platform.moving;
-        const amplitude = motionConfig.amplitude;
-        const speed = motionConfig.speed;
-        const minY = Math.max(
-          CONFIG.platform.height + motionConfig.topMargin,
-          baseY - amplitude
-        );
-        const maxY = Math.min(
-          CANVAS_H - motionConfig.bottomMargin,
-          baseY + amplitude
-        );
+      createMotionGroup(difficulty, trialIndex) {
+        if (difficulty.motionType === 'none') {
+          return null;
+        }
+
+        const phase = seededUnit(trialIndex) * Math.PI * 2;
+
+        if (difficulty.motionType === 'vertical') {
+          return {
+            type: 'vertical',
+            phase,
+            amplitude: CONFIG.platform.moving.vertical.amplitude,
+            speed: CONFIG.platform.moving.vertical.speed,
+          };
+        }
 
         return {
-          amplitude,
-          speed,
-          minY,
-          maxY,
-          phase: Math.random() * Math.PI * 2,
+          type: 'horizontal',
+          phase,
+          amplitude: CONFIG.platform.moving.horizontal.amplitude,
+          speed: CONFIG.platform.moving.horizontal.speed,
         };
       },
 
-      randomWidth(difficulty) {
+      widthForTrial(difficulty, trialIndex) {
         const { min, max } = difficulty.platformWidth;
-        return min + Math.random() * (max - min);
+        if (max <= min) return min;
+        return min + seededUnit(trialIndex) * (max - min);
       },
 
-      randomGap() {
-        return CONFIG.platform.minGap +
-               Math.random() * (CONFIG.platform.maxGap - CONFIG.platform.minGap);
+      syncPlatforms() {
+        this.platforms = [this.currentPlatform, ...this.targetPlatforms].filter(Boolean);
       },
 
-      update(dt) {
-        const allowMotion = player.state !== 'scrolling';
-        this.platforms.forEach((platform, index) => {
-          if (typeof platform.updateMotion === 'function') {
-            const shouldAnimate = index !== 0 && allowMotion;
-            platform.updateMotion(dt, shouldAnimate);
-          }
+      updateMotionPositions() {
+        if (!this.motionGroup) {
+          this.targetPlatforms.forEach(platform => {
+            platform.centerX = platform.baseCenterX;
+            platform.y = platform.baseY;
+          });
+          return;
+        }
+
+        this.targetPlatforms.forEach(platform => {
+          const offset = Math.sin(this.motionGroup.phase + platform.phaseOffset) * this.motionGroup.amplitude;
+          platform.centerX = platform.baseCenterX + (this.motionGroup.type === 'horizontal' ? offset : 0);
+          platform.y = platform.baseY + (this.motionGroup.type === 'vertical' ? offset : 0);
         });
       },
 
+      shiftPlatforms(deltaX) {
+        if (this.currentPlatform) {
+          this.currentPlatform.baseCenterX += deltaX;
+          this.currentPlatform.centerX += deltaX;
+        }
+
+        this.targetPlatforms.forEach(platform => {
+          platform.baseCenterX += deltaX;
+          platform.centerX += deltaX;
+        });
+
+        player.x += deltaX;
+        this.syncPlatforms();
+      },
+
+      update(dt) {
+        if (this.motionGroup && player.state !== 'scrolling') {
+          this.motionGroup.phase += dt * this.motionGroup.speed;
+        }
+
+        this.updateMotionPositions();
+        this.syncPlatforms();
+      },
+
       getCurrentPlatform() {
-        return this.platforms[0];
+        return this.currentPlatform;
       },
 
       getTargetPlatform() {
-        return this.platforms[1];
+        return this.targetPlatforms[0] ?? null;
       },
 
       scrollToAlign(dt) {
-        const target = this.getTargetPlatform();
+        const target = this.scrollAnchor ?? this.getTargetPlatform();
         if (!target) return false;
         const targetCenterX = PLATFORM_ANCHOR_X;
 
         if (target.centerX > targetCenterX) {
           const distance = CONFIG.world.scrollSpeed * dt;
           const actualMove = Math.min(distance, target.centerX - targetCenterX);
-
-          this.platforms.forEach(p => p.centerX -= actualMove);
-          player.x -= actualMove;
+          this.shiftPlatforms(-actualMove);
 
           return false;
         } else {
           const snapDelta = targetCenterX - target.centerX;
-          this.platforms.forEach(p => p.centerX += snapDelta);
-          player.x += snapDelta;
+          this.shiftPlatforms(snapDelta);
 
-          this.platforms.shift();
-          const currentPlatform = this.platforms[0];
-          if (currentPlatform && currentPlatform.motion) {
-            currentPlatform.y = currentPlatform.baseY;
-          }
+          this.scrollAnchor = null;
 
-          const currentPlatformX = this.platforms[0].centerX;
-          let newCenterX;
-
-          if (currentPlatformX === PLATFORM_ANCHOR_X) {
-            newCenterX = PLATFORM_RIGHT_CENTER_X;
+          if (gameState.trial < TOTAL_TRIALS) {
+            this.reset();
           } else {
-            newCenterX = PLATFORM_ANCHOR_X;
+            this.currentPlatform = this.createPlatform(
+              PLATFORM_ANCHOR_X,
+              PLATFORM_Y,
+              CONFIG.platform.currentWidth,
+              { role: 'current' }
+            );
+            this.targetPlatforms = [];
+            this.motionGroup = null;
+            this.syncPlatforms();
           }
-
-          const nextDifficulty = getTrialDifficulty(gameState.trial);
-          this.platforms.push(this.createPlatform(
-            newCenterX,
-            this.randomWidth(nextDifficulty),
-            { enableMotion: nextDifficulty.movingTarget }
-          ));
 
           return true;
         }
       },
 
       checkLanding() {
-        const target = this.getTargetPlatform();
-        if (!target) return false;
         const playerBottom = player.y + CONFIG.player.height / 2;
-        const platformTop = target.top;
-
         const playerLeft = player.x - CONFIG.player.width / 2;
         const playerRight = player.x + CONFIG.player.width / 2;
         const playerCenter = player.x;
 
-        if (player.vy > 0 && playerBottom >= platformTop) {
+        if (player.vy <= 0) {
+          return false;
+        }
+
+        for (const target of this.targetPlatforms) {
+          if (playerBottom < target.top) continue;
+
           if (
             playerRight >= target.left &&
             playerLeft <= target.right &&
@@ -595,7 +670,8 @@
               latestRecord.landingY = landingY;
             }
 
-            player.y = PLATFORM_Y - CONFIG.platform.height - CONFIG.player.height / 2;
+            this.scrollAnchor = target;
+            player.y = target.top - CONFIG.player.height / 2;
             player.vx = 0;
             player.vy = 0;
             player.scaleX = 1;
@@ -604,33 +680,65 @@
           }
         }
 
-        if (player.vy > 0 && player.y > CANVAS_H + 100) {
-          if (gameState.trial < TOTAL_TRIALS) {
-            gameState.failureCount++;
-            gameState.trial++;
-            const latestRecord = gameState.trialRecords[gameState.trialRecords.length - 1];
-            if (latestRecord && latestRecord.outcome === null) {
-              latestRecord.outcome = 'failure';
-              latestRecord.postLandingTimestamp = null;
-            }
-            player.reset();
-          }
-          return false;
-        }
-
         return false;
       },
 
       checkFailure() {
-        const target = this.getTargetPlatform();
+        const targetDepth = this.targetPlatforms.length
+          ? Math.max(...this.targetPlatforms.map(platform => platform.y))
+          : PLATFORM_Y;
+
         return player.y > CANVAS_H + 100 ||
-               (player.vy > 0 && player.y > target.y + 100);
+               (player.vy > 0 && player.y > targetDepth + 120);
       },
     };
 
     // ===== Utility Functions =====
     function clamp(value, min, max) {
       return Math.max(min, Math.min(max, value));
+    }
+
+    function hexToRgb(hexColor) {
+      const normalized = hexColor.replace('#', '');
+      const value = normalized.length === 3
+        ? normalized.split('').map(char => char + char).join('')
+        : normalized;
+
+      return {
+        r: parseInt(value.slice(0, 2), 16),
+        g: parseInt(value.slice(2, 4), 16),
+        b: parseInt(value.slice(4, 6), 16),
+      };
+    }
+
+    function interpolateColor(fromColor, toColor, progress) {
+      const start = hexToRgb(fromColor);
+      const end = hexToRgb(toColor);
+      const t = clamp(progress, 0, 1);
+
+      const r = Math.round(start.r + (end.r - start.r) * t);
+      const g = Math.round(start.g + (end.g - start.g) * t);
+      const b = Math.round(start.b + (end.b - start.b) * t);
+
+      return `rgb(${r}, ${g}, ${b})`;
+    }
+
+    function getPlayerRenderColor() {
+      if (player.state !== 'charging') {
+        return CONFIG.player.color;
+      }
+
+      const chargeProgress = clamp(
+        player.chargeTime / CONFIG.player.maxVisualChargeTime,
+        0,
+        1
+      );
+
+      return interpolateColor(
+        CONFIG.player.color,
+        CONFIG.player.chargeColor,
+        chargeProgress
+      );
     }
 
     // ===== Results Submission =====
@@ -695,7 +803,7 @@
                 latestRecord.outcome = 'failure';
                 latestRecord.postLandingTimestamp = null;
               }
-              player.reset();
+              player.state = 'scrolling';
             }
           }
           break;
@@ -703,12 +811,12 @@
         case 'scrolling':
           const alignmentComplete = platformManager.scrollToAlign(dt);
           if (alignmentComplete) {
-            player.state = 'idle';
+            player.respawn();
           }
           break;
       }
 
-      if (gameState.trial >= TOTAL_TRIALS && !gameState.gameEnded) {
+      if (gameState.trial >= TOTAL_TRIALS && !gameState.gameEnded && player.state !== 'scrolling') {
         gameState.gameEnded = true;
         gameState.isStarted = false;
         submitResultsToServer();
@@ -739,7 +847,7 @@
       ctx.translate(player.x, player.y);
       ctx.scale(player.scaleX, player.scaleY);
 
-      ctx.fillStyle = CONFIG.player.color;
+      ctx.fillStyle = getPlayerRenderColor();
       const w = CONFIG.player.width;
       const h = CONFIG.player.height;
       ctx.fillRect(-w / 2, -h / 2, w, h);

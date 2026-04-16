@@ -5,215 +5,404 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Jump Game · Replay Viewer</title>
   <style>
-    *, *::before, *::after { box-sizing: border-box; }
-    body {
-      margin: 0;
-      padding: 20px;
-      background: #f5f5f5;
-      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
-      color: #111;
+    :root {
+      --bg: #eef3f8;
+      --panel-border: #d7e0ea;
+      --ink: #112031;
+      --muted: #5f7285;
+      --accent: #f97316;
+      --accent-strong: #ea580c;
+      --success: #16a34a;
+      --danger: #dc2626;
+      --shadow: 0 20px 50px rgba(17, 32, 49, 0.12);
     }
-    h2 { margin: 0 0 16px; font-size: 20px; }
 
-    /* ── Top controls ── */
-    .controls {
+    *, *::before, *::after { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      background:
+        radial-gradient(circle at top left, rgba(249, 115, 22, 0.08), transparent 24%),
+        linear-gradient(180deg, #f9fbfd 0%, var(--bg) 100%);
+      color: var(--ink);
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    }
+
+    body {
+      padding: 24px;
+      overflow-x: hidden;
+    }
+
+    .page {
+      max-width: 1220px;
+      margin: 0 auto;
+      display: grid;
+      gap: 16px;
+    }
+
+    .header-card,
+    .toolbar-card,
+    .stage-card,
+    .stats-card {
+      background: rgba(255, 255, 255, 0.9);
+      border: 1px solid var(--panel-border);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+    }
+
+    .header-card {
+      padding: 22px 24px 20px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 28px;
+      line-height: 1.1;
+    }
+
+    .subhead {
+      margin: 0;
+      font-size: 15px;
+      line-height: 1.5;
+      color: var(--muted);
+      max-width: 760px;
+    }
+
+    .toolbar-card {
+      padding: 16px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .toolbar-row {
       display: flex;
       gap: 10px;
-      align-items: center;
       flex-wrap: wrap;
-      margin-bottom: 14px;
+      align-items: center;
     }
-    select {
-      flex: 1;
-      min-width: 240px;
-      padding: 7px 10px;
-      border: 1px solid #ccc;
-      border-radius: 6px;
-      font-size: 14px;
-      background: #fff;
-    }
-    .btn {
-      padding: 7px 16px;
-      border-radius: 6px;
-      background: #333;
-      color: #fff;
-      border: none;
-      cursor: pointer;
+
+    label {
+      font-size: 13px;
       font-weight: 700;
-      font-size: 14px;
+      color: var(--muted);
       white-space: nowrap;
-      transition: background 0.15s;
     }
-    .btn:hover:not(:disabled) { background: #555; }
-    .btn:disabled { background: #aaa; cursor: default; }
+
+    input[type="text"],
+    select {
+      height: 42px;
+      padding: 0 14px;
+      border-radius: 12px;
+      border: 1px solid #c7d3df;
+      background: #fff;
+      color: var(--ink);
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+
+    input[type="text"]:focus,
+    select:focus {
+      border-color: #7ea6c8;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+    }
+
+    .search-input { width: 220px; }
+    .session-select { flex: 1 1 380px; min-width: 260px; }
+
+    .btn {
+      height: 42px;
+      padding: 0 16px;
+      border: none;
+      border-radius: 12px;
+      background: #20354a;
+      color: #fff;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 800;
+      letter-spacing: 0.01em;
+      white-space: nowrap;
+      transition: transform 0.15s, background 0.15s, opacity 0.15s;
+    }
+
+    .btn:hover:not(:disabled) {
+      background: #2c4660;
+      transform: translateY(-1px);
+    }
+
+    .btn:disabled {
+      opacity: 0.55;
+      cursor: default;
+      transform: none;
+    }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--ink);
+      border: 1px solid #c7d3df;
+    }
+
+    .btn-ghost:hover:not(:disabled) {
+      background: rgba(17, 32, 49, 0.04);
+    }
+
     .speed-wrap {
       display: flex;
       align-items: center;
-      gap: 8px;
-      white-space: nowrap;
-      font-size: 14px;
-    }
-    #speed-label { min-width: 30px; font-weight: 700; }
-
-    /* ── Canvas area ── */
-    .canvas-wrap {
-      display: inline-block;
-      line-height: 0;
-    }
-    canvas {
-      display: block;
-      background: #fff;
-      border: 2px solid #e0e0e0;
-      border-radius: 8px 8px 0 0;
-      box-shadow: 0 4px 12px rgba(0,0,0,.1);
-    }
-    .progress-track {
-      height: 6px;
-      background: #e0e0e0;
-      border-radius: 0 0 6px 6px;
-      overflow: hidden;
-    }
-    .progress-fill {
-      height: 100%;
-      width: 0%;
-      background: #22c55e;
-      transition: width 0.25s;
-    }
-
-    /* ── Playback row ── */
-    .playback {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-      margin-top: 12px;
-    }
-    #status-text {
-      font-size: 13px;
-      color: #666;
-      margin-left: 4px;
-    }
-
-    /* ── Stats ── */
-    .stats {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
       gap: 10px;
-      margin-top: 16px;
-      max-width: 604px;
+      margin-left: auto;
+      min-height: 42px;
+      padding: 0 4px;
     }
-    .stat-card {
-      background: #fff;
-      border: 1px solid #e0e0e0;
-      border-radius: 8px;
-      padding: 12px 10px;
-      text-align: center;
-    }
-    .stat-label { font-size: 11px; color: #888; margin-bottom: 4px; }
-    .stat-value { font-size: 22px; font-weight: 700; }
 
-    /* ── Participant search ── */
-    .search-row {
+    .speed-wrap input[type="range"] {
+      width: 130px;
+    }
+
+    #speed-label {
+      min-width: 28px;
+      text-align: right;
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    #search-count {
+      font-size: 13px;
+      color: var(--muted);
+      margin-left: auto;
+    }
+
+    .error-banner {
+      display: none;
+      padding: 13px 15px;
+      border-radius: 14px;
+      border: 1px solid #fecaca;
+      background: #fff1f2;
+      color: #be123c;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    /* ── Two-column layout ── */
+    .main-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 680px) minmax(260px, 1fr);
+      gap: 16px;
+      align-items: start;
+    }
+
+    /* ── Stage card ── */
+    .stage-card {
+      padding: 16px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .stage-top {
       display: flex;
       gap: 8px;
       align-items: center;
-      margin-bottom: 10px;
       flex-wrap: wrap;
     }
-    .search-row label { font-size: 14px; font-weight: 600; white-space: nowrap; }
-    .search-row input[type="text"] {
-      padding: 7px 10px;
-      border: 1px solid #ccc;
-      border-radius: 6px;
-      font-size: 14px;
-      width: 180px;
-    }
-    .btn-ghost {
-      padding: 7px 14px;
-      border-radius: 6px;
-      background: transparent;
-      color: #555;
-      border: 1px solid #ccc;
-      cursor: pointer;
-      font-size: 14px;
-      transition: background 0.15s;
-    }
-    .btn-ghost:hover { background: #eee; }
-    #search-count { font-size: 13px; color: #888; }
 
-    /* ── Error banner ── */
-    #error-banner {
-      display: none;
-      background: #fee2e2;
-      color: #b91c1c;
-      border: 1px solid #fca5a5;
-      border-radius: 8px;
-      padding: 12px 16px;
-      margin-bottom: 14px;
+    .status-line {
       font-size: 14px;
+      color: var(--muted);
+      margin-left: auto;
+      text-align: right;
+    }
+
+    .canvas-shell {
+      background: linear-gradient(180deg, rgba(255,255,255,0.85) 0%, rgba(240,246,251,0.95) 100%);
+      border-radius: 18px;
+      border: 1px solid #dde6ef;
+      padding: 10px;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      max-width: 600px;
+      margin: 0 auto;
+      background: #ffffff;
+      border-radius: 12px 12px 0 0;
+      border: 2px solid #dde6ef;
+    }
+
+    .progress-track {
+      width: 100%;
+      max-width: 600px;
+      height: 8px;
+      margin: 0 auto;
+      border-radius: 0 0 10px 10px;
+      overflow: hidden;
+      background: #dfe8f1;
+    }
+
+    .progress-fill {
+      width: 0%;
+      height: 100%;
+      background: linear-gradient(90deg, #fb923c 0%, #f97316 100%);
+      transition: width 0.2s ease;
+    }
+
+    .action-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+
+    /* ── Stats card ── */
+    .stats-card {
+      padding: 16px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .stat {
+      border-radius: 14px;
+      border: 1px solid #dde6ef;
+      background: linear-gradient(180deg, rgba(255,255,255,0.96) 0%, rgba(244,247,250,0.96) 100%);
+      padding: 14px 12px;
+    }
+
+    .stat-label {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      font-weight: 800;
+    }
+
+    .stat-value {
+      font-size: 26px;
+      font-weight: 900;
+      line-height: 1;
+    }
+
+    @media (max-width: 1024px) {
+      .main-grid {
+        grid-template-columns: 1fr;
+      }
+
+      #search-count {
+        margin-left: 0;
+      }
+
+      .status-line {
+        width: 100%;
+        margin-left: 0;
+        text-align: left;
+      }
+    }
+
+    @media (max-width: 720px) {
+      body { padding: 16px; }
+
+      .toolbar-row,
+      .action-row,
+      .stage-top {
+        align-items: stretch;
+      }
+
+      .search-input,
+      .session-select,
+      .btn,
+      .btn-ghost {
+        width: 100%;
+      }
+
+      .speed-wrap {
+        width: 100%;
+        margin-left: 0;
+        justify-content: space-between;
+      }
     }
   </style>
 </head>
 <body>
+  <div class="page">
 
-<h2>Jump Game — Replay Viewer</h2>
+    <section class="header-card">
+      <h1>Jump Game — Replay Viewer</h1>
+      <p class="subhead">Load a saved session and watch the replay at your chosen speed.</p>
+    </section>
 
-<div id="error-banner"></div>
+    <div class="error-banner" id="error-banner"></div>
 
-<!-- Participant ID search -->
-<div class="search-row">
-  <label id="pid-search-label" for="pid-search">Participant ID</label>
-  <input id="pid-search" type="text" placeholder="e.g. P042" autocomplete="off" spellcheck="false" />
-  <button class="btn" id="search-btn">Search</button>
-  <button class="btn-ghost" id="show-all-btn">Show All</button>
-  <span id="search-count"></span>
-</div>
+    <section class="toolbar-card">
+      <div class="toolbar-row">
+        <label id="pid-search-label" for="pid-search">Participant ID</label>
+        <input id="pid-search" class="search-input" type="text" placeholder="e.g. P042" autocomplete="off" spellcheck="false" />
+        <button id="search-btn" class="btn">Search</button>
+        <button id="show-all-btn" class="btn btn-ghost">Show All</button>
+        <span id="search-count"></span>
+      </div>
 
-<!-- Session selector -->
-<div class="controls">
-  <select id="session-select"><option value="">Loading sessions…</option></select>
-  <button class="btn" id="load-btn" disabled>Load &amp; Watch</button>
-  <div class="speed-wrap">
-    <label for="speed-slider">Speed</label>
-    <input type="range" id="speed-slider" min="0" max="3" step="1" value="1" />
-    <span id="speed-label">1×</span>
+      <div class="toolbar-row">
+        <select id="session-select" class="session-select"><option value="">Loading sessions…</option></select>
+        <button class="btn" id="load-btn" disabled>Load &amp; Watch</button>
+        <div class="speed-wrap">
+          <label for="speed-slider">Speed</label>
+          <input type="range" id="speed-slider" min="0" max="3" step="1" value="1" />
+          <span id="speed-label">1×</span>
+        </div>
+      </div>
+    </section>
+
+    <div class="main-grid">
+      <section class="stage-card">
+        <div class="stage-top">
+          <span class="status-line" id="status-text">No session loaded</span>
+        </div>
+
+        <div class="canvas-shell">
+          <canvas id="game" width="600" height="720" aria-label="Jump game replay"></canvas>
+          <div class="progress-track">
+            <div class="progress-fill" id="progress-fill"></div>
+          </div>
+        </div>
+
+        <div class="action-row">
+          <button class="btn" id="play-btn"    disabled>Play</button>
+          <button class="btn" id="pause-btn"   disabled>Pause</button>
+          <button class="btn btn-ghost" id="restart-btn" disabled>Restart</button>
+        </div>
+      </section>
+
+      <aside class="stats-card">
+        <div class="stats-grid">
+          <div class="stat">
+            <div class="stat-label">Successes</div>
+            <div class="stat-value" id="stat-success">—</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">Failures</div>
+            <div class="stat-value" id="stat-failure">—</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">Avg Reaction</div>
+            <div class="stat-value" id="stat-reaction">—</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">Avg Charge</div>
+            <div class="stat-value" id="stat-charge">—</div>
+          </div>
+        </div>
+      </aside>
+    </div>
+
   </div>
-</div>
-
-<!-- Canvas -->
-<div class="canvas-wrap">
-  <canvas id="game" width="600" height="720"></canvas>
-  <div class="progress-track">
-    <div class="progress-fill" id="progress-fill"></div>
-  </div>
-</div>
-
-<!-- Playback controls -->
-<div class="playback">
-  <button class="btn" id="play-btn"    disabled>Play</button>
-  <button class="btn" id="pause-btn"   disabled>Pause</button>
-  <button class="btn" id="restart-btn" disabled>Restart</button>
-  <span id="status-text">No session loaded</span>
-</div>
-
-<!-- Stats -->
-<div class="stats">
-  <div class="stat-card">
-    <div class="stat-label">Successes</div>
-    <div class="stat-value" id="stat-success">—</div>
-  </div>
-  <div class="stat-card">
-    <div class="stat-label">Failures</div>
-    <div class="stat-value" id="stat-failure">—</div>
-  </div>
-  <div class="stat-card">
-    <div class="stat-label">Avg Reaction (ms)</div>
-    <div class="stat-value" id="stat-reaction">—</div>
-  </div>
-  <div class="stat-card">
-    <div class="stat-label">Avg Charge (ms)</div>
-    <div class="stat-value" id="stat-charge">—</div>
-  </div>
-</div>
 
 <script>
 (() => {
@@ -248,10 +437,11 @@
   const CANVAS_W = 600;
   const CANVAS_H = 720;
   const PLATFORM_Y          = CANVAS_H - 140;            // 580
-  const PLATFORM_ANCHOR_X   = 40 + 70 / 2;              // 75
-  const PLATFORM_RIGHT_CENTER_X = CANVAS_W - 40 - 70 / 2; // 525
+  const CURRENT_PLATFORM_W  = 80;
+  const PLATFORM_ANCHOR_X   = 40 + CURRENT_PLATFORM_W / 2;
+  const PLATFORM_RIGHT_CENTER_X = CANVAS_W - 40 - CURRENT_PLATFORM_W / 2;
   const PLAYER_INITIAL_Y    = PLATFORM_Y - 16 - 50 / 2;  // 539
-  const TOTAL_TRIALS        = 30;
+  const TOTAL_TRIALS        = 18;
 
   const PHYSICS = {
     gravity:           1400,
@@ -273,12 +463,56 @@
   const PLAYER_H       = 50;
   const SCROLL_SPEED   = 450;
 
-  const MOVING_CFG = { amplitude: 60, speed: 2.2, topMargin: 24, bottomMargin: 20 };
+  const MOVING_CFG = {
+    vertical: { amplitude: 62, speed: 2.15 },
+    horizontal: { amplitude: 56, speed: 1.65 },
+  };
 
   const PHASES = [
-    { start:  1, end: 10, movingTarget: false },
-    { start: 11, end: 20, movingTarget: false },
-    { start: 21, end: 30, movingTarget: true  },
+    {
+      start: 1,
+      end: 3,
+      platformWidth: { min: 132, max: 150 },
+      targetLayout: 'single',
+      motionType: 'none',
+    },
+    {
+      start: 4,
+      end: 6,
+      platformWidth: { min: 102, max: 120 },
+      targetLayout: 'single',
+      motionType: 'none',
+    },
+    {
+      start: 7,
+      end: 9,
+      platformWidth: { min: 94, max: 112 },
+      targetLayout: 'single',
+      motionType: 'vertical',
+    },
+    {
+      start: 10,
+      end: 12,
+      platformWidth: { min: 92, max: 110 },
+      targetLayout: 'single',
+      motionType: 'horizontal',
+    },
+    {
+      start: 13,
+      end: 15,
+      platformWidth: { min: 84, max: 100 },
+      targetLayout: 'dual',
+      motionType: 'none',
+      dualXOffset: 150,
+    },
+    {
+      start: 16,
+      end: 18,
+      platformWidth: { min: 78, max: 94 },
+      targetLayout: 'dual',
+      motionType: 'vertical',
+      dualXOffset: 120,
+    },
   ];
 
   const SPEED_OPTIONS = [0.5, 1, 2, 3];
@@ -289,6 +523,19 @@
   function phaseFor(trialIndex) {
     const n = clamp(trialIndex + 1, 1, TOTAL_TRIALS);
     return PHASES.find(p => n >= p.start && n <= p.end) ?? PHASES[PHASES.length - 1];
+  }
+
+  function seededUnit(trialIndex) {
+    const value = Math.sin((trialIndex + 1) * 12.9898) * 43758.5453;
+    return value - Math.floor(value);
+  }
+
+  function widthForTrial(trialIndex, fallbackWidth) {
+    if (Number.isFinite(fallbackWidth) && fallbackWidth > 10) return fallbackWidth;
+    const phase = phaseFor(trialIndex);
+    const { min, max } = phase.platformWidth;
+    if (max <= min) return min;
+    return min + seededUnit(trialIndex) * (max - min);
   }
 
   function avg(arr) {
@@ -303,6 +550,7 @@
     currentTrial: 0,
     speed:        1,
     session:      null,
+    pendingOutcome: null,
     lastOutcome:  null,   // 'success' | 'failure' | null — shown top-right
   };
 
@@ -356,6 +604,7 @@
 
   function abortReplay() {
     RS.active = false;
+    RS.pendingOutcome = null;
     doUnpause();
     fireTrialDone('abort');
   }
@@ -369,7 +618,7 @@
     chargeTime: 0,
     spring: { active: false, time: 0, amplitude: 0 },
 
-    resetPosition() {
+    respawn() {
       this.x = PLATFORM_ANCHOR_X;
       this.y = PLAYER_INITIAL_Y;
       this.vx = 0; this.vy = 0;
@@ -378,6 +627,11 @@
       this.chargeTime = 0;
       this.spring.active = false;
       this.spring.time = 0;
+      this.spring.amplitude = 0;
+    },
+
+    resetPosition() {
+      this.respawn();
     },
 
     updateCharging(dt) {
@@ -416,87 +670,161 @@
   };
 
   // ── Platforms ────────────────────────────────────────────────────────────
-  function makePlatform(centerX, width, moving) {
-    const motion = moving ? (() => {
-      const amp = MOVING_CFG.amplitude;
-      return {
-        amplitude: amp,
-        speed:     MOVING_CFG.speed,
-        minY: Math.max(PLATFORM_H + MOVING_CFG.topMargin,    PLATFORM_Y - amp),
-        maxY: Math.min(CANVAS_H - MOVING_CFG.bottomMargin,   PLATFORM_Y + amp),
-        phase: Math.random() * Math.PI * 2,
-      };
-    })() : null;
-
+  function makePlatform(centerX, baseY, width, phaseOffset = 0) {
     return {
-      centerX, width, height: PLATFORM_H,
-      baseY: PLATFORM_Y, y: PLATFORM_Y,
-      motion,
+      baseCenterX: centerX,
+      centerX,
+      width,
+      height: PLATFORM_H,
+      baseY,
+      y: baseY,
+      phaseOffset,
       get left()  { return this.centerX - this.width / 2; },
       get right() { return this.centerX + this.width / 2; },
       get top()   { return this.y - this.height; },
-      tick(dt, active) {
-        if (!this.motion || !active) { this.y = this.baseY; return; }
-        this.motion.phase += dt * this.motion.speed;
-        this.y = clamp(
-          this.baseY + Math.sin(this.motion.phase) * this.motion.amplitude,
-          this.motion.minY, this.motion.maxY
-        );
-      },
     };
   }
 
-  // platList[0] = current (left), platList[1] = target (right)
   let platList = [];
+  let motionGroup = null;
+  let scrollAnchor = null;
+
+  function createMotionGroup(phase, trialIndex) {
+    if (phase.motionType === 'none') return null;
+
+    const seededPhase = seededUnit(trialIndex) * Math.PI * 2;
+    if (phase.motionType === 'vertical') {
+      return {
+        type: 'vertical',
+        phase: seededPhase,
+        amplitude: MOVING_CFG.vertical.amplitude,
+        speed: MOVING_CFG.vertical.speed,
+      };
+    }
+
+    return {
+      type: 'horizontal',
+      phase: seededPhase,
+      amplitude: MOVING_CFG.horizontal.amplitude,
+      speed: MOVING_CFG.horizontal.speed,
+    };
+  }
+
+  function updateMotionPositions() {
+    const targets = platList.slice(1);
+    if (!motionGroup) {
+      targets.forEach(platform => {
+        platform.centerX = platform.baseCenterX;
+        platform.y = platform.baseY;
+      });
+      return;
+    }
+
+    targets.forEach(platform => {
+      const offset = Math.sin(motionGroup.phase + (platform.phaseOffset ?? 0)) * motionGroup.amplitude;
+      platform.centerX = platform.baseCenterX + (motionGroup.type === 'horizontal' ? offset : 0);
+      platform.y = platform.baseY + (motionGroup.type === 'vertical' ? offset : 0);
+    });
+  }
+
+  function getPrimaryTarget() {
+    return platList[1] ?? null;
+  }
+
+  function getTargetPlatforms() {
+    return platList.slice(1);
+  }
 
   function setupPlatforms(trialIndex, targetWidth) {
-    const moving = phaseFor(trialIndex).movingTarget;
+    const phase = phaseFor(trialIndex);
+    const resolvedWidth = widthForTrial(trialIndex, targetWidth);
+
     platList = [
-      makePlatform(PLATFORM_ANCHOR_X,       80,          false),
-      makePlatform(PLATFORM_RIGHT_CENTER_X, targetWidth, moving),
+      makePlatform(PLATFORM_ANCHOR_X, PLATFORM_Y, CURRENT_PLATFORM_W),
     ];
+
+    if (phase.targetLayout === 'dual') {
+      const dualXOffset = phase.dualXOffset ?? 120;
+      platList.push(
+        makePlatform(PLATFORM_RIGHT_CENTER_X - dualXOffset, PLATFORM_Y, resolvedWidth, 0),
+        makePlatform(PLATFORM_RIGHT_CENTER_X, PLATFORM_Y, resolvedWidth, Math.PI * 0.6)
+      );
+    } else {
+      platList.push(makePlatform(PLATFORM_RIGHT_CENTER_X, PLATFORM_Y, resolvedWidth));
+    }
+
+    motionGroup = createMotionGroup(phase, trialIndex);
+    scrollAnchor = getPrimaryTarget();
+    updateMotionPositions();
   }
 
   function updatePlatforms(dt) {
-    platList.forEach((p, i) => p.tick(dt, i !== 0 && player.state !== 'scrolling'));
+    if (motionGroup && player.state !== 'scrolling') {
+      motionGroup.phase += dt * motionGroup.speed;
+    }
+    updateMotionPositions();
   }
 
-  // Returns true on successful landing
   function checkLanding() {
-    const tgt = platList[1];
-    if (!tgt) return false;
     if (player.vy <= 0) return false;
-    if (player.y + PLAYER_H / 2 < tgt.top) return false;
-    const pl = player.x - PLAYER_W / 2;
-    const pr = player.x + PLAYER_W / 2;
-    if (pr >= tgt.left && pl <= tgt.right && player.x >= tgt.left && player.x <= tgt.right) {
-      player.y  = PLATFORM_Y - PLATFORM_H - PLAYER_H / 2;
-      player.vx = 0; player.vy = 0;
-      player.scaleX = 1; player.scaleY = 1;
-      return true;
+
+    const playerBottom = player.y + PLAYER_H / 2;
+    const playerLeft = player.x - PLAYER_W / 2;
+    const playerRight = player.x + PLAYER_W / 2;
+
+    for (const target of getTargetPlatforms()) {
+      if (playerBottom < target.top) continue;
+
+      if (
+        playerRight >= target.left &&
+        playerLeft <= target.right &&
+        player.x >= target.left &&
+        player.x <= target.right
+      ) {
+        scrollAnchor = target;
+        player.y  = target.top - PLAYER_H / 2;
+        player.vx = 0;
+        player.vy = 0;
+        player.scaleX = 1;
+        player.scaleY = 1;
+        return true;
+      }
     }
+
     return false;
   }
 
-  // Scrolls platforms left until target aligns with PLATFORM_ANCHOR_X.
-  // Returns true when scroll is complete.
+  function checkFailure() {
+    const targets = getTargetPlatforms();
+    const targetDepth = targets.length
+      ? Math.max(...targets.map(target => target.y))
+      : PLATFORM_Y;
+
+    return player.y > CANVAS_H + 100 ||
+           (player.vy > 0 && player.y > targetDepth + 120);
+  }
+
+  function shiftPlatforms(deltaX) {
+    platList.forEach(platform => {
+      platform.baseCenterX += deltaX;
+      platform.centerX += deltaX;
+    });
+    player.x += deltaX;
+  }
+
   function scrollStep(dt) {
-    const tgt = platList[1];
+    const tgt = scrollAnchor || getPrimaryTarget();
     if (!tgt) return true;
     const diff = tgt.centerX - PLATFORM_ANCHOR_X;
     if (diff > 0) {
       const move = Math.min(SCROLL_SPEED * dt, diff);
-      platList.forEach(p => p.centerX -= move);
-      player.x -= move;
+      shiftPlatforms(-move);
       return false;
     }
-    // Snap & promote
+
     const snap = PLATFORM_ANCHOR_X - tgt.centerX;
-    platList.forEach(p => p.centerX += snap);
-    player.x += snap;
-    platList.shift();
-    // Append a placeholder right platform (overwritten at next trial setup)
-    platList.push(makePlatform(PLATFORM_RIGHT_CENTER_X, 80, false));
+    shiftPlatforms(snap);
+    scrollAnchor = null;
     return true;
   }
 
@@ -514,16 +842,19 @@
         player.updateJumping(dt);
         if (checkLanding()) {
           player.state = 'scrolling';
-        } else if (player.y > CANVAS_H + 100) {
-          player.resetPosition();
-          fireTrialDone('failure');
+        } else if (checkFailure()) {
+          RS.pendingOutcome = 'failure';
+          scrollAnchor = getPrimaryTarget();
+          player.state = 'scrolling';
         }
         break;
 
       case 'scrolling':
         if (scrollStep(dt)) {
-          player.state = 'idle';
-          fireTrialDone('success');
+          const outcome = RS.pendingOutcome ?? 'success';
+          RS.pendingOutcome = null;
+          player.respawn();
+          fireTrialDone(outcome);
         }
         break;
     }
@@ -589,7 +920,7 @@
       statusText.textContent = `Trial ${i + 1} / ${TOTAL_TRIALS}`;
 
       // 1. Setup
-      const targetWidth = rec.targetPlatformWidth ?? 80;
+      const targetWidth = widthForTrial(i, rec.targetPlatformWidth);
       setupPlatforms(i, targetWidth);
       player.resetPosition();
 
@@ -652,7 +983,7 @@
   function showStats(session) {
     document.getElementById('stat-success').textContent  = session.successCount ?? '—';
     document.getElementById('stat-failure').textContent  = session.failureCount ?? '—';
-    const trials = session.trials || [];
+    const trials = (session.trials || []).slice(0, TOTAL_TRIALS);
     const reactions = trials.map(t => t.landingToPressMs).filter(v => v != null);
     const charges   = trials.map(t => t.pressToJumpMs).filter(v => v != null);
     document.getElementById('stat-reaction').textContent = avg(reactions);
@@ -662,14 +993,15 @@
   function startReplay() {
     if (!RS.session) return;
     RS.paused = false;
+    RS.pendingOutcome = null;
     RS.lastOutcome = null;
     RS.currentTrial = 0;
     progressFill.style.width = '0%';
     player.resetPosition();
-    setupPlatforms(0, 80);
+    setupPlatforms(0, widthForTrial(0));
     setPlaybackUI(true, false);
     playBtn.textContent = 'Playing…';
-    replaySession(RS.session.trials || []);
+    replaySession((RS.session.trials || []).slice(0, TOTAL_TRIALS));
   }
 
   // ── Speed slider ──────────────────────────────────────────────────────────
@@ -697,7 +1029,7 @@
       showStats(session);
       progressFill.style.width = '0%';
       player.resetPosition();
-      setupPlatforms(0, 80);
+      setupPlatforms(0, widthForTrial(0));
 
       playBtn.textContent = 'Play';
       playBtn.disabled    = false;
@@ -747,7 +1079,8 @@
     const pid  = s.participantId ? `[${s.participantId}]` : '[no ID]';
     const date = new Date(s.submittedAt).toLocaleString();
     const pct  = Math.round((s.successRate ?? 0) * 100);
-    return `${pid} — Session #${num} — ${date} — ${s.successCount}/30 success — ${pct}%`;
+    const total = s.totalTrials ?? s.trials?.length ?? TOTAL_TRIALS;
+    return `${pid} — Session #${num} — ${date} — ${s.successCount}/${total} success — ${pct}%`;
   }
 
   function populateDropdown(subset) {
@@ -807,7 +1140,7 @@
   })();
 
   // Initial canvas render (idle state)
-  setupPlatforms(0, 80);
+  setupPlatforms(0, widthForTrial(0));
 
 })();
 </script>

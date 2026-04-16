@@ -1,0 +1,2103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  <title>Jump Game · Intervention Replay</title>
+  <style>
+    :root {
+      --bg: #eef3f8;
+      --panel: #ffffff;
+      --panel-border: #d7e0ea;
+      --ink: #112031;
+      --muted: #5f7285;
+      --accent: #f97316;
+      --accent-strong: #ea580c;
+      --success: #16a34a;
+      --danger: #dc2626;
+      --shadow: 0 20px 50px rgba(17, 32, 49, 0.12);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      background:
+        radial-gradient(circle at top left, rgba(249, 115, 22, 0.08), transparent 24%),
+        linear-gradient(180deg, #f9fbfd 0%, var(--bg) 100%);
+      color: var(--ink);
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    }
+
+    body {
+      padding: 24px;
+      overflow-x: hidden;
+    }
+
+    .page {
+      max-width: 1220px;
+      margin: 0 auto;
+      display: grid;
+      gap: 16px;
+    }
+
+    .header-card,
+    .toolbar-card,
+    .stage-card,
+    .stats-card {
+      background: rgba(255, 255, 255, 0.9);
+      border: 1px solid var(--panel-border);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+    }
+
+    .header-card {
+      padding: 22px 24px 20px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 28px;
+      line-height: 1.1;
+    }
+
+    .subhead {
+      margin: 0;
+      font-size: 15px;
+      line-height: 1.5;
+      color: var(--muted);
+      max-width: 760px;
+    }
+
+    .toolbar-card {
+      padding: 16px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .toolbar-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    label {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    input[type="text"],
+    select {
+      height: 42px;
+      padding: 0 14px;
+      border-radius: 12px;
+      border: 1px solid #c7d3df;
+      background: #fff;
+      color: var(--ink);
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+
+    input[type="text"]:focus,
+    select:focus {
+      border-color: #7ea6c8;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+    }
+
+    .search-input { width: 220px; }
+    .session-select { flex: 1 1 380px; min-width: 260px; }
+
+    .btn {
+      height: 42px;
+      padding: 0 16px;
+      border: none;
+      border-radius: 12px;
+      background: #20354a;
+      color: #fff;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 800;
+      letter-spacing: 0.01em;
+      transition: transform 0.15s, background 0.15s, opacity 0.15s;
+    }
+
+    .btn:hover:not(:disabled) {
+      background: #2c4660;
+      transform: translateY(-1px);
+    }
+
+    .btn:disabled {
+      opacity: 0.55;
+      cursor: default;
+      transform: none;
+    }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--ink);
+      border: 1px solid #c7d3df;
+    }
+
+    .btn-ghost:hover:not(:disabled) {
+      background: rgba(17, 32, 49, 0.04);
+    }
+
+    .btn-accent {
+      background: var(--accent);
+    }
+
+    .btn-accent:hover:not(:disabled) {
+      background: var(--accent-strong);
+    }
+
+    .speed-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-left: auto;
+      min-height: 42px;
+      padding: 0 4px;
+    }
+
+    .speed-wrap input[type="range"] {
+      width: 130px;
+    }
+
+    #speed-label {
+      min-width: 28px;
+      text-align: right;
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .meta-note {
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    #search-count {
+      font-size: 13px;
+      color: var(--muted);
+      margin-left: auto;
+    }
+
+    .error-banner {
+      display: none;
+      padding: 13px 15px;
+      border-radius: 14px;
+      border: 1px solid #fecaca;
+      background: #fff1f2;
+      color: #be123c;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .main-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 680px) minmax(260px, 1fr);
+      gap: 16px;
+      align-items: start;
+    }
+
+    .stage-card {
+      padding: 16px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .stage-top {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      background: #dbe7f3;
+      color: #16304b;
+    }
+
+    .pill.live {
+      background: rgba(34, 197, 94, 0.14);
+      color: #166534;
+    }
+
+    .pill.replay {
+      background: rgba(59, 130, 246, 0.12);
+      color: #1d4ed8;
+    }
+
+    .pill.queue {
+      background: rgba(249, 115, 22, 0.14);
+      color: var(--accent-strong);
+    }
+
+    .status-line {
+      font-size: 14px;
+      color: var(--muted);
+      margin-left: auto;
+      text-align: right;
+    }
+
+    .canvas-shell {
+      background: linear-gradient(180deg, rgba(255,255,255,0.85) 0%, rgba(240,246,251,0.95) 100%);
+      border-radius: 18px;
+      border: 1px solid #dde6ef;
+      padding: 10px;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      max-width: 600px;
+      margin: 0 auto;
+      background: #ffffff;
+      border-radius: 12px 12px 0 0;
+      border: 2px solid #dde6ef;
+      box-shadow: inset 0 -50px 80px rgba(224, 232, 240, 0.3);
+      touch-action: none;
+    }
+
+    .progress-track {
+      width: 100%;
+      max-width: 600px;
+      height: 8px;
+      margin: 0 auto;
+      border-radius: 0 0 10px 10px;
+      overflow: hidden;
+      background: #dfe8f1;
+    }
+
+    .progress-fill {
+      width: 0%;
+      height: 100%;
+      background: linear-gradient(90deg, #fb923c 0%, #f97316 100%);
+      transition: width 0.2s ease;
+    }
+
+    .action-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .hint {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.45;
+      min-height: 19px;
+    }
+
+    .stats-card {
+      padding: 16px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .stat {
+      border-radius: 14px;
+      border: 1px solid #dde6ef;
+      background: linear-gradient(180deg, rgba(255,255,255,0.96) 0%, rgba(244,247,250,0.96) 100%);
+      padding: 14px 12px;
+    }
+
+    .stat-label {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      font-weight: 800;
+    }
+
+    .stat-value {
+      font-size: 26px;
+      font-weight: 900;
+      line-height: 1;
+    }
+
+    .phase-card {
+      border-radius: 14px;
+      background: #f7fafc;
+      border: 1px dashed #c9d6e3;
+      padding: 14px 12px;
+      display: grid;
+      gap: 4px;
+    }
+
+    .phase-label {
+      font-size: 12px;
+      font-weight: 800;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .phase-value {
+      font-size: 20px;
+      font-weight: 900;
+    }
+
+    .phase-desc {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    .submit-panel {
+      position: fixed;
+      top: 0;
+      right: 0;
+      width: min(380px, calc(100vw - 24px));
+      height: 100vh;
+      transform: translateX(110%);
+      transition: transform 0.3s ease;
+      z-index: 40;
+      pointer-events: none;
+      padding: 18px;
+    }
+
+    .submit-panel.open {
+      transform: translateX(0);
+      pointer-events: auto;
+    }
+
+    .submit-card {
+      height: 100%;
+      border-radius: 24px;
+      background: rgba(255,255,255,0.96);
+      border: 1px solid var(--panel-border);
+      box-shadow: 0 24px 60px rgba(17, 32, 49, 0.18);
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .submit-card h2 {
+      margin: 0;
+      font-size: 24px;
+      line-height: 1.1;
+    }
+
+    .submit-card p {
+      margin: 0;
+      font-size: 14px;
+      line-height: 1.5;
+      color: var(--muted);
+    }
+
+    .submit-card input[type="text"] {
+      width: 100%;
+    }
+
+    .submit-error {
+      min-height: 18px;
+      font-size: 13px;
+      color: var(--danger);
+      font-weight: 700;
+    }
+
+    .submit-status {
+      min-height: 18px;
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    .success-text { color: var(--success); font-weight: 800; }
+
+    @media (max-width: 1024px) {
+      .main-grid {
+        grid-template-columns: 1fr;
+      }
+
+      #search-count {
+        margin-left: 0;
+      }
+
+      .status-line {
+        width: 100%;
+        margin-left: 0;
+        text-align: left;
+      }
+    }
+
+    @media (max-width: 720px) {
+      body {
+        padding: 16px;
+      }
+
+      .toolbar-row,
+      .action-row,
+      .stage-top {
+        align-items: stretch;
+      }
+
+      .search-input,
+      .session-select,
+      .btn,
+      .btn-ghost {
+        width: 100%;
+      }
+
+      .speed-wrap {
+        width: 100%;
+        margin-left: 0;
+        justify-content: space-between;
+      }
+
+      .stats-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .submit-panel {
+        width: 100%;
+        padding: 10px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <section class="header-card">
+      <h1>Jump Game — Intervention Replay</h1>
+      <p class="subhead">
+        Load a saved session, autoplay the replay, and let the participant take control at the start of the next trial whenever they choose to intervene.
+      </p>
+    </section>
+
+    <div class="error-banner" id="error-banner"></div>
+
+    <section class="toolbar-card">
+      <div class="toolbar-row">
+        <label id="pid-search-label" for="pid-search">Participant ID</label>
+        <input id="pid-search" class="search-input" type="text" placeholder="e.g. P042" autocomplete="off" spellcheck="false" />
+        <button id="search-btn" class="btn">Search</button>
+        <button id="show-all-btn" class="btn btn-ghost">Show All</button>
+        <span id="search-count"></span>
+      </div>
+
+      <div class="toolbar-row">
+        <select id="session-select" class="session-select">
+          <option value="">Loading sessions…</option>
+        </select>
+        <button id="load-btn" class="btn" disabled>Load &amp; Start</button>
+        <div class="speed-wrap">
+          <label for="speed-slider">Replay Speed</label>
+          <input type="range" id="speed-slider" min="0" max="3" step="1" value="1" />
+          <span id="speed-label">1×</span>
+        </div>
+      </div>
+
+      <div class="meta-note" id="toolbar-note">
+        Load starts the replay immediately. Intervention only becomes active at the beginning of the next trial.
+      </div>
+    </section>
+
+    <div class="main-grid">
+      <section class="stage-card">
+        <div class="stage-top">
+          <span class="pill replay" id="mode-pill">Replay Idle</span>
+          <span class="pill" id="queue-pill">No Intervention Queued</span>
+          <span class="status-line" id="status-text">No session loaded</span>
+        </div>
+
+        <div class="canvas-shell">
+          <canvas id="game" width="600" height="720" aria-label="Jump game intervention replay"></canvas>
+          <div class="progress-track">
+            <div class="progress-fill" id="progress-fill"></div>
+          </div>
+        </div>
+
+        <div class="action-row">
+          <button id="pause-btn" class="btn" disabled>Pause</button>
+          <button id="restart-btn" class="btn btn-ghost" disabled>Restart</button>
+          <button id="intervene-btn" class="btn btn-accent" disabled>Intervene</button>
+        </div>
+
+        <div class="hint" id="hint-text">Choose a session to begin.</div>
+      </section>
+
+      <aside class="stats-card">
+        <div class="stats-grid">
+          <div class="stat">
+            <div class="stat-label">Successes</div>
+            <div class="stat-value" id="stat-success">0</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">Failures</div>
+            <div class="stat-value" id="stat-failure">0</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">Avg Reaction</div>
+            <div class="stat-value" id="stat-reaction">—</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">Avg Charge</div>
+            <div class="stat-value" id="stat-charge">—</div>
+          </div>
+        </div>
+
+        <div class="phase-card">
+          <div class="phase-label">Current Phase</div>
+          <div class="phase-value" id="phase-name">Ready</div>
+          <div class="phase-desc" id="phase-desc">The current trial configuration appears here after a session is loaded.</div>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <aside class="submit-panel" id="submit-panel" aria-hidden="true">
+    <div class="submit-card">
+      <h2>Participant intervened, what's the id?</h2>
+      <p>Type the participant ID again. The game will append <strong>_replay</strong> before sending the results to MongoDB.</p>
+      <input id="submit-id-input" type="text" autocomplete="off" spellcheck="false" placeholder="e.g. P042" />
+      <div class="submit-error" id="submit-error"></div>
+      <button id="submit-btn" class="btn btn-accent">Submit Results</button>
+      <div class="submit-status" id="submit-status"></div>
+    </div>
+  </aside>
+
+  <script>
+  (() => {
+    'use strict';
+
+    const PARTICIPANT_ID_LABEL = 'Participant ID';
+    const SPEED_OPTIONS = [0.5, 1, 2, 3];
+
+    const CONFIG = {
+      canvas: {
+        width: 600,
+        height: 720,
+      },
+      platform: {
+        height: 16,
+        currentWidth: 80,
+        edgeMargin: 40,
+        colorCurrent: '#9aa9b8',
+        colorTarget: '#d7dee6',
+        colorTargetAlt: '#c7d4df',
+        outline: '#cbd5df',
+        motion: {
+          vertical: {
+            amplitude: 62,
+            speed: 2.15,
+          },
+          horizontal: {
+            amplitude: 56,
+            speed: 1.65,
+          },
+        },
+      },
+      player: {
+        width: 25,
+        height: 50,
+        color: '#0f172a',
+        chargeColor: '#f59e0b',
+        maxVisualChargeTime: 1.2,
+      },
+      physics: {
+        gravity: 1400,
+        maxJumpSpeed: 950,
+        jumpAngle: -Math.PI / 3,
+        chargeCoefficient: 0.011,
+        chargeGamma: 0.65,
+      },
+      world: {
+        platformYOffset: 140,
+        scrollSpeed: 450,
+      },
+      animation: {
+        chargeScale: 0.14,
+        minScaleY: 0.68,
+        scaleBeta: 0.6,
+        springOmega: 11,
+        springZeta: 0.32,
+      },
+      trials: {
+        total: 18,
+        phases: [
+          {
+            start: 1,
+            end: 3,
+            name: 'Static Wide',
+            description: 'Single landing platform with a generous width.',
+            platformWidth: { min: 132, max: 150 },
+            targetLayout: 'single',
+            motion: 'none',
+          },
+          {
+            start: 4,
+            end: 6,
+            name: 'Static Narrow',
+            description: 'Single landing platform with a tighter width.',
+            platformWidth: { min: 102, max: 120 },
+            targetLayout: 'single',
+            motion: 'none',
+          },
+          {
+            start: 7,
+            end: 9,
+            name: 'Vertical Moving',
+            description: 'Single target platform oscillating vertically.',
+            platformWidth: { min: 94, max: 112 },
+            targetLayout: 'single',
+            motion: 'vertical',
+          },
+          {
+            start: 10,
+            end: 12,
+            name: 'Horizontal Moving',
+            description: 'Single target platform sliding horizontally.',
+            platformWidth: { min: 92, max: 110 },
+            targetLayout: 'single',
+            motion: 'horizontal',
+          },
+          {
+            start: 13,
+            end: 15,
+            name: 'Dual Side-by-Side',
+            description: 'Two target platforms placed side-by-side horizontally; land on either one.',
+            platformWidth: { min: 84, max: 100 },
+            targetLayout: 'dual',
+            motion: 'none',
+            dualXOffset: 150,
+          },
+          {
+            start: 16,
+            end: 18,
+            name: 'Dual Moving Vertical',
+            description: 'Two side-by-side targets each oscillating vertically at different phases.',
+            platformWidth: { min: 78, max: 94 },
+            targetLayout: 'dual',
+            motion: 'vertical',
+            dualXOffset: 120,
+          },
+        ],
+      },
+    };
+
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+    const errorBanner = document.getElementById('error-banner');
+    const pidSearchLabel = document.getElementById('pid-search-label');
+    const pidSearch = document.getElementById('pid-search');
+    const searchBtn = document.getElementById('search-btn');
+    const showAllBtn = document.getElementById('show-all-btn');
+    const searchCount = document.getElementById('search-count');
+    const sessionSelect = document.getElementById('session-select');
+    const loadBtn = document.getElementById('load-btn');
+    const speedSlider = document.getElementById('speed-slider');
+    const speedLabel = document.getElementById('speed-label');
+    const pauseBtn = document.getElementById('pause-btn');
+    const restartBtn = document.getElementById('restart-btn');
+    const interveneBtn = document.getElementById('intervene-btn');
+    const modePill = document.getElementById('mode-pill');
+    const queuePill = document.getElementById('queue-pill');
+    const statusText = document.getElementById('status-text');
+    const hintText = document.getElementById('hint-text');
+    const progressFill = document.getElementById('progress-fill');
+    const phaseName = document.getElementById('phase-name');
+    const phaseDesc = document.getElementById('phase-desc');
+    const submitPanel = document.getElementById('submit-panel');
+    const submitIdInput = document.getElementById('submit-id-input');
+    const submitBtn = document.getElementById('submit-btn');
+    const submitError = document.getElementById('submit-error');
+    const submitStatus = document.getElementById('submit-status');
+    const statSuccess = document.getElementById('stat-success');
+    const statFailure = document.getElementById('stat-failure');
+    const statReaction = document.getElementById('stat-reaction');
+    const statCharge = document.getElementById('stat-charge');
+
+    pidSearchLabel.textContent = PARTICIPANT_ID_LABEL;
+
+    const CANVAS_W = CONFIG.canvas.width;
+    const CANVAS_H = CONFIG.canvas.height;
+    const TOTAL_TRIALS = CONFIG.trials.total;
+    const PLATFORM_Y = CANVAS_H - CONFIG.world.platformYOffset;
+    const PLATFORM_ANCHOR_X = CONFIG.platform.edgeMargin + CONFIG.platform.currentWidth / 2;
+    const PLATFORM_RIGHT_CENTER_X = CANVAS_W - CONFIG.platform.edgeMargin - CONFIG.platform.currentWidth / 2;
+    const PLAYER_INITIAL_Y = PLATFORM_Y - CONFIG.platform.height - CONFIG.player.height / 2;
+
+    const state = {
+      allSessions: [],
+      session: null,
+      loadedSessionId: '',
+      trial: 0,
+      successCount: 0,
+      failureCount: 0,
+      lastLandingTimestamp: performance.now(),
+      lastPressTimestamp: null,
+      currentTrialRecord: null,
+      trialRecords: [],
+      lastFrameTime: performance.now(),
+      runId: 0,
+      isPaused: false,
+      gameEnded: false,
+      gameMode: 'replay',
+      activeTrialSource: null,
+      replaySpeed: 1,
+      willIntervene: false,
+      intervened: false,
+      lastOutcome: null,
+      pendingOutcome: null,
+      expectedReplayOutcome: null,
+      expectedReplayRecord: null,
+      submitComplete: false,
+      isSubmitting: false,
+    };
+
+    const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+
+    function finiteOrNull(value) {
+      return Number.isFinite(value) ? value : null;
+    }
+
+    function delay(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    function seededUnit(index) {
+      const x = Math.sin((index + 1) * 12.9898) * 43758.5453;
+      return x - Math.floor(x);
+    }
+
+    function avg(values) {
+      if (!values.length) return '—';
+      return `${Math.round(values.reduce((sum, value) => sum + value, 0) / values.length)} ms`;
+    }
+
+    function hexToRgb(hexColor) {
+      const normalized = hexColor.replace('#', '');
+      const value = normalized.length === 3
+        ? normalized.split('').map(char => char + char).join('')
+        : normalized;
+
+      return {
+        r: parseInt(value.slice(0, 2), 16),
+        g: parseInt(value.slice(2, 4), 16),
+        b: parseInt(value.slice(4, 6), 16),
+      };
+    }
+
+    function interpolateColor(fromColor, toColor, progress) {
+      const start = hexToRgb(fromColor);
+      const end = hexToRgb(toColor);
+      const t = clamp(progress, 0, 1);
+
+      const r = Math.round(start.r + (end.r - start.r) * t);
+      const g = Math.round(start.g + (end.g - start.g) * t);
+      const b = Math.round(start.b + (end.b - start.b) * t);
+
+      return `rgb(${r}, ${g}, ${b})`;
+    }
+
+    function getPlayerRenderColor() {
+      if (player.state !== 'charging') {
+        return CONFIG.player.color;
+      }
+
+      const chargeProgress = clamp(
+        player.chargeTime / CONFIG.player.maxVisualChargeTime,
+        0,
+        1
+      );
+
+      return interpolateColor(
+        CONFIG.player.color,
+        CONFIG.player.chargeColor,
+        chargeProgress
+      );
+    }
+
+    function getTrialPhase(trialIndex) {
+      const trialNumber = clamp(trialIndex + 1, 1, TOTAL_TRIALS);
+      return CONFIG.trials.phases.find(phase => (
+        trialNumber >= phase.start && trialNumber <= phase.end
+      )) ?? CONFIG.trials.phases[CONFIG.trials.phases.length - 1];
+    }
+
+    function describePhase(phase) {
+      const motionText = phase.motion === 'none'
+        ? 'static'
+        : phase.motion === 'vertical'
+          ? 'vertical motion'
+          : 'horizontal motion';
+      const targetText = phase.targetLayout === 'dual' ? 'dual targets' : 'single target';
+      return `${phase.description} Width ${Math.round(phase.platformWidth.min)}–${Math.round(phase.platformWidth.max)} px, ${targetText}, ${motionText}.`;
+    }
+
+    function resolveTargetWidth(trialIndex, phase, overrideWidth) {
+      if (Number.isFinite(overrideWidth) && overrideWidth > 10) {
+        return overrideWidth;
+      }
+      const t = seededUnit(trialIndex);
+      return phase.platformWidth.min + t * (phase.platformWidth.max - phase.platformWidth.min);
+    }
+
+    function normalizeReplayTrial(record, index) {
+      const phase = getTrialPhase(index);
+      return {
+        trial: index + 1,
+        landingTimestamp: finiteOrNull(record?.landingTimestamp),
+        pressTimestamp: finiteOrNull(record?.pressTimestamp),
+        jumpTimestamp: finiteOrNull(record?.jumpTimestamp),
+        landingToPressMs: Number.isFinite(record?.landingToPressMs) ? Math.max(0, record.landingToPressMs) : 500,
+        pressToJumpMs: Number.isFinite(record?.pressToJumpMs) ? Math.max(20, record.pressToJumpMs) : 120,
+        postLandingTimestamp: finiteOrNull(record?.postLandingTimestamp),
+        targetPlatformWidth: resolveTargetWidth(index, phase, record?.targetPlatformWidth),
+        targetPlatformHeight: Number.isFinite(record?.targetPlatformHeight) ? record.targetPlatformHeight : CONFIG.platform.height,
+        startX: finiteOrNull(record?.startX),
+        startY: finiteOrNull(record?.startY),
+        landingX: finiteOrNull(record?.landingX),
+        landingY: finiteOrNull(record?.landingY),
+        outcome: record?.outcome === 'success' ? 'success' : 'failure',
+      };
+    }
+
+    function normalizeSession(session) {
+      const trials = Array.isArray(session?.trials) ? session.trials.slice(0, TOTAL_TRIALS) : [];
+      if (trials.length < TOTAL_TRIALS) {
+        throw new Error(`This session has ${trials.length} trials. minireplay requires ${TOTAL_TRIALS}.`);
+      }
+
+      return {
+        ...session,
+        totalTrials: TOTAL_TRIALS,
+        trials: trials.map((trial, index) => normalizeReplayTrial(trial, index)),
+      };
+    }
+
+    function cloneTrialForSave(trial) {
+      return {
+        trial: trial.trial,
+        landingTimestamp: finiteOrNull(trial.landingTimestamp),
+        pressTimestamp: finiteOrNull(trial.pressTimestamp),
+        jumpTimestamp: finiteOrNull(trial.jumpTimestamp),
+        landingToPressMs: finiteOrNull(trial.landingToPressMs),
+        pressToJumpMs: finiteOrNull(trial.pressToJumpMs),
+        postLandingTimestamp: finiteOrNull(trial.postLandingTimestamp),
+        targetPlatformWidth: finiteOrNull(trial.targetPlatformWidth),
+        targetPlatformHeight: finiteOrNull(trial.targetPlatformHeight),
+        startX: finiteOrNull(trial.startX),
+        startY: finiteOrNull(trial.startY),
+        landingX: finiteOrNull(trial.landingX),
+        landingY: finiteOrNull(trial.landingY),
+        outcome: trial.outcome === 'success' ? 'success' : trial.outcome === 'failure' ? 'failure' : null,
+      };
+    }
+
+    function optionText(session, totalCount) {
+      const index = state.allSessions.findIndex(item => item._id === session._id);
+      const number = totalCount - index;
+      const participant = session.participantId ? `[${session.participantId}]` : '[no ID]';
+      const date = session.submittedAt ? new Date(session.submittedAt).toLocaleString() : 'Unknown date';
+      const total = session.totalTrials ?? session.trials?.length ?? 0;
+      const successRate = Number.isFinite(session.successRate)
+        ? `${Math.round(session.successRate * 100)}%`
+        : '—';
+      return `${participant} — Session #${number} — ${date} — ${session.successCount ?? 0}/${total} success — ${successRate}`;
+    }
+
+    function populateDropdown(subset) {
+      sessionSelect.innerHTML = '';
+
+      if (!subset.length) {
+        sessionSelect.innerHTML = '<option value="">No matching sessions</option>';
+        loadBtn.disabled = true;
+        searchCount.textContent = '0 sessions';
+        return;
+      }
+
+      subset.forEach(session => {
+        const option = document.createElement('option');
+        option.value = session._id;
+        option.textContent = optionText(session, state.allSessions.length);
+        sessionSelect.appendChild(option);
+      });
+
+      loadBtn.disabled = false;
+      searchCount.textContent = `${subset.length} session${subset.length === 1 ? '' : 's'}`;
+    }
+
+    function filterSessions() {
+      const query = pidSearch.value.trim().toLowerCase();
+      if (!query) {
+        populateDropdown(state.allSessions);
+        return;
+      }
+      const filtered = state.allSessions.filter(session =>
+        (session.participantId || '').toLowerCase().includes(query)
+      );
+      populateDropdown(filtered);
+    }
+
+    function showError(message) {
+      errorBanner.style.display = 'block';
+      errorBanner.textContent = message;
+    }
+
+    function hideError() {
+      errorBanner.style.display = 'none';
+      errorBanner.textContent = '';
+    }
+
+    function openSubmitPanel() {
+      submitPanel.classList.add('open');
+      submitPanel.setAttribute('aria-hidden', 'false');
+      submitIdInput.focus();
+    }
+
+    function closeSubmitPanel() {
+      submitPanel.classList.remove('open');
+      submitPanel.setAttribute('aria-hidden', 'true');
+      submitError.textContent = '';
+      submitStatus.textContent = '';
+      submitStatus.classList.remove('success-text');
+      submitBtn.disabled = false;
+      state.isSubmitting = false;
+      state.submitComplete = false;
+      submitIdInput.value = '';
+    }
+
+    function currentTrialDisplay() {
+      if (!state.session) return 0;
+      if (state.gameEnded) return TOTAL_TRIALS;
+      return Math.min(state.trial + 1, TOTAL_TRIALS);
+    }
+
+    function updatePhasePanel() {
+      if (!state.session) {
+        phaseName.textContent = 'Ready';
+        phaseDesc.textContent = 'The current trial configuration appears here after a session is loaded.';
+        return;
+      }
+
+      const phase = getTrialPhase(Math.min(state.trial, TOTAL_TRIALS - 1));
+      phaseName.textContent = phase.name;
+      phaseDesc.textContent = describePhase(phase);
+    }
+
+    function updateStats() {
+      statSuccess.textContent = String(state.successCount);
+      statFailure.textContent = String(state.failureCount);
+      const reactions = state.trialRecords
+        .map(record => record.landingToPressMs)
+        .filter(value => Number.isFinite(value));
+      const charges = state.trialRecords
+        .map(record => record.pressToJumpMs)
+        .filter(value => Number.isFinite(value));
+      statReaction.textContent = avg(reactions);
+      statCharge.textContent = avg(charges);
+    }
+
+    function updateProgress() {
+      progressFill.style.width = `${(state.trial / TOTAL_TRIALS) * 100}%`;
+    }
+
+    function updateControls() {
+      const hasSession = Boolean(state.session);
+      const pausedLabel = state.isPaused ? 'Resume' : 'Pause';
+      pauseBtn.textContent = pausedLabel;
+      pauseBtn.disabled = !hasSession || state.gameEnded;
+      restartBtn.disabled = !hasSession;
+
+      if (!hasSession || state.gameEnded) {
+        interveneBtn.disabled = true;
+      } else {
+        interveneBtn.disabled = state.gameMode !== 'replay' || state.willIntervene;
+      }
+
+      if (!hasSession) {
+        interveneBtn.textContent = 'Intervene';
+      } else if (state.gameMode === 'live') {
+        interveneBtn.textContent = 'Live Control Active';
+      } else if (state.willIntervene) {
+        interveneBtn.textContent = 'Intervention Queued';
+      } else {
+        interveneBtn.textContent = 'Intervene';
+      }
+
+      if (state.gameMode === 'live') {
+        speedSlider.disabled = true;
+      } else {
+        speedSlider.disabled = !hasSession || state.gameEnded;
+      }
+    }
+
+    function updateModeUI() {
+      if (!state.session) {
+        modePill.textContent = 'Replay Idle';
+        modePill.className = 'pill replay';
+        queuePill.textContent = 'No Intervention Queued';
+        queuePill.className = 'pill';
+        return;
+      }
+
+      if (state.gameMode === 'live') {
+        modePill.textContent = 'Participant Control';
+        modePill.className = 'pill live';
+      } else {
+        modePill.textContent = 'Replay Autoplay';
+        modePill.className = 'pill replay';
+      }
+
+      if (state.willIntervene) {
+        queuePill.textContent = 'Intervention Starts Next Trial';
+        queuePill.className = 'pill queue';
+      } else if (state.intervened) {
+        queuePill.textContent = 'Participant Intervened';
+        queuePill.className = 'pill queue';
+      } else {
+        queuePill.textContent = 'No Intervention Queued';
+        queuePill.className = 'pill';
+      }
+    }
+
+    function updateText(status, hint) {
+      if (status) statusText.textContent = status;
+      if (hint) hintText.textContent = hint;
+    }
+
+    function updateUI(status, hint) {
+      updateModeUI();
+      updateControls();
+      updateStats();
+      updateProgress();
+      updatePhasePanel();
+      if (status || hint) {
+        updateText(status, hint);
+      }
+    }
+
+    function createPlatform(baseCenterX, baseY, width, role = 'target', phaseOffset = 0) {
+      return {
+        baseCenterX,
+        centerX: baseCenterX,
+        baseY,
+        y: baseY,
+        width,
+        height: CONFIG.platform.height,
+        role,
+        phaseOffset,
+        get left() { return this.centerX - this.width / 2; },
+        get right() { return this.centerX + this.width / 2; },
+        get top() { return this.y - this.height; },
+      };
+    }
+
+    const platformManager = {
+      currentPlatform: createPlatform(PLATFORM_ANCHOR_X, PLATFORM_Y, CONFIG.platform.currentWidth, 'current'),
+      targetPlatforms: [createPlatform(PLATFORM_RIGHT_CENTER_X, PLATFORM_Y, 120, 'target')],
+      motionGroup: null,
+      scrollAnchor: null,
+
+      setupTrial(trialIndex, sourceRecord) {
+        const phase = getTrialPhase(trialIndex);
+        const targetWidth = resolveTargetWidth(trialIndex, phase, sourceRecord?.targetPlatformWidth);
+
+        this.currentPlatform = createPlatform(
+          PLATFORM_ANCHOR_X,
+          PLATFORM_Y,
+          CONFIG.platform.currentWidth,
+          'current'
+        );
+
+        this.targetPlatforms = [];
+
+        if (phase.targetLayout === 'dual') {
+          const dualXOffset = phase.dualXOffset ?? 120;
+          this.targetPlatforms.push(
+            createPlatform(PLATFORM_RIGHT_CENTER_X - dualXOffset, PLATFORM_Y, targetWidth, 'target', 0)
+          );
+          this.targetPlatforms.push(
+            createPlatform(PLATFORM_RIGHT_CENTER_X, PLATFORM_Y, targetWidth, 'target-alt', Math.PI * 0.6)
+          );
+        } else {
+          this.targetPlatforms.push(
+            createPlatform(PLATFORM_RIGHT_CENTER_X, PLATFORM_Y, targetWidth, 'target')
+          );
+        }
+
+        this.motionGroup = this.createMotionGroup(phase.motion, trialIndex);
+        this.scrollAnchor = this.targetPlatforms[0] ?? null;
+        this.applyMotion(false);
+      },
+
+      createMotionGroup(motionType, trialIndex) {
+        if (motionType === 'none') return null;
+        const phaseSeed = seededUnit(trialIndex) * Math.PI * 2;
+
+        if (motionType === 'vertical') {
+          return {
+            type: 'vertical',
+            speed: CONFIG.platform.motion.vertical.speed,
+            amplitude: CONFIG.platform.motion.vertical.amplitude,
+            phase: phaseSeed,
+            offsetX: 0,
+            offsetY: 0,
+          };
+        }
+
+        if (motionType === 'horizontal') {
+          return {
+            type: 'horizontal',
+            speed: CONFIG.platform.motion.horizontal.speed,
+            amplitude: CONFIG.platform.motion.horizontal.amplitude,
+            phase: phaseSeed,
+            offsetX: 0,
+            offsetY: 0,
+          };
+        }
+
+        return null;
+      },
+
+      applyMotion(advance, dt = 0) {
+        if (!this.motionGroup || !this.targetPlatforms.length) {
+          this.targetPlatforms.forEach(target => {
+            target.centerX = target.baseCenterX;
+            target.y = target.baseY;
+          });
+          return;
+        }
+
+        if (advance) {
+          this.motionGroup.phase += dt * this.motionGroup.speed;
+        }
+
+        this.targetPlatforms.forEach(target => {
+          const offset = Math.sin(this.motionGroup.phase + (target.phaseOffset ?? 0)) * this.motionGroup.amplitude;
+          target.centerX = target.baseCenterX + (this.motionGroup.type === 'horizontal' ? offset : 0);
+          target.y = target.baseY + (this.motionGroup.type === 'vertical' ? offset : 0);
+        });
+      },
+
+      update(dt) {
+        this.applyMotion(player.state !== 'scrolling', dt);
+      },
+
+      getPlatforms() {
+        return [this.currentPlatform, ...this.targetPlatforms].filter(Boolean);
+      },
+
+      getPrimaryTarget() {
+        return this.targetPlatforms[0] ?? null;
+      },
+
+      getPrimaryTargetWidth() {
+        return this.getPrimaryTarget()?.width ?? null;
+      },
+
+      checkLanding(assistMargin = 0) {
+        if (player.vy <= 0) return null;
+
+        const playerBottom = player.y + CONFIG.player.height / 2;
+        const playerLeft = player.x - CONFIG.player.width / 2;
+        const playerRight = player.x + CONFIG.player.width / 2;
+
+        for (const target of this.targetPlatforms) {
+          if (playerBottom < target.top) continue;
+          if (
+            playerRight >= target.left - assistMargin &&
+            playerLeft <= target.right + assistMargin &&
+            player.x >= target.left - assistMargin &&
+            player.x <= target.right + assistMargin
+          ) {
+            return target;
+          }
+        }
+
+        return null;
+      },
+
+      getReplayFallbackTarget() {
+        if (!this.targetPlatforms.length) return null;
+        let best = this.targetPlatforms[0];
+        let bestDistance = Math.abs(best.centerX - player.x);
+
+        for (const target of this.targetPlatforms.slice(1)) {
+          const distance = Math.abs(target.centerX - player.x);
+          if (distance < bestDistance) {
+            best = target;
+            bestDistance = distance;
+          }
+        }
+
+        return best;
+      },
+
+      checkFailure() {
+        const deepestTargetY = this.targetPlatforms.length
+          ? Math.max(...this.targetPlatforms.map(target => target.y))
+          : PLATFORM_Y;
+
+        return (
+          player.y > CANVAS_H + 120 ||
+          (player.vy > 0 && player.y > deepestTargetY + 160)
+        );
+      },
+
+      shiftAll(dx) {
+        if (this.currentPlatform) {
+          this.currentPlatform.baseCenterX += dx;
+          this.currentPlatform.centerX += dx;
+        }
+
+        this.targetPlatforms.forEach(target => {
+          target.baseCenterX += dx;
+          target.centerX += dx;
+        });
+
+        player.x += dx;
+      },
+
+      scrollToAlign(dt) {
+        const anchor = this.scrollAnchor || this.getPrimaryTarget();
+        if (!anchor) return true;
+
+        const diff = anchor.centerX - PLATFORM_ANCHOR_X;
+        if (diff > 0) {
+          const move = Math.min(CONFIG.world.scrollSpeed * dt, diff);
+          this.shiftAll(-move);
+          return false;
+        }
+
+        const snap = PLATFORM_ANCHOR_X - anchor.centerX;
+        this.shiftAll(snap);
+        return true;
+      },
+    };
+
+    const player = {
+      x: PLATFORM_ANCHOR_X,
+      y: PLAYER_INITIAL_Y,
+      vx: 0,
+      vy: 0,
+      scaleX: 1,
+      scaleY: 1,
+      state: 'idle',
+      chargeTime: 0,
+      spring: {
+        active: false,
+        time: 0,
+        amplitude: 0,
+      },
+
+      respawn() {
+        this.x = PLATFORM_ANCHOR_X;
+        this.y = PLAYER_INITIAL_Y;
+        this.vx = 0;
+        this.vy = 0;
+        this.scaleX = 1;
+        this.scaleY = 1;
+        this.state = 'idle';
+        this.chargeTime = 0;
+        this.spring.active = false;
+        this.spring.time = 0;
+        this.spring.amplitude = 0;
+
+        state.lastPressTimestamp = null;
+        state.currentTrialRecord = null;
+        state.lastLandingTimestamp = performance.now();
+      },
+
+      beginChargeVisual() {
+        this.state = 'charging';
+        this.chargeTime = 0;
+        this.scaleX = 1;
+        this.scaleY = 1;
+      },
+
+      startLiveCharge() {
+        if (state.gameMode !== 'live' || this.state !== 'idle' || state.gameEnded || state.isPaused) {
+          return;
+        }
+
+        const pressTimestamp = performance.now();
+        const landingTimestamp = state.lastLandingTimestamp ?? null;
+        const targetWidth = platformManager.getPrimaryTargetWidth();
+
+        state.lastPressTimestamp = pressTimestamp;
+        state.currentTrialRecord = {
+          trial: state.trial + 1,
+          landingTimestamp,
+          pressTimestamp,
+          jumpTimestamp: null,
+          landingToPressMs: landingTimestamp !== null ? pressTimestamp - landingTimestamp : null,
+          pressToJumpMs: null,
+          postLandingTimestamp: null,
+          targetPlatformWidth: targetWidth,
+          targetPlatformHeight: CONFIG.platform.height,
+          startX: this.x,
+          startY: this.y,
+          landingX: null,
+          landingY: null,
+          outcome: null,
+        };
+
+        this.beginChargeVisual();
+      },
+
+      releaseLiveJump() {
+        if (state.gameMode !== 'live' || this.state !== 'charging') {
+          return;
+        }
+
+        const jumpTimestamp = performance.now();
+        if (state.currentTrialRecord) {
+          state.currentTrialRecord.jumpTimestamp = jumpTimestamp;
+          if (state.currentTrialRecord.pressTimestamp !== null) {
+            state.currentTrialRecord.pressToJumpMs =
+              jumpTimestamp - state.currentTrialRecord.pressTimestamp;
+          }
+          state.trialRecords.push(cloneTrialForSave(state.currentTrialRecord));
+          state.currentTrialRecord = null;
+        }
+
+        state.lastPressTimestamp = null;
+        this.launchFromChargeTime(this.chargeTime);
+      },
+
+      launchFromChargeTime(seconds) {
+        const rawSpeed = CONFIG.physics.chargeCoefficient *
+          Math.pow(seconds * 1000, CONFIG.physics.chargeGamma) * 1000;
+        const jumpSpeed = Math.min(CONFIG.physics.maxJumpSpeed, rawSpeed);
+
+        this.chargeTime = seconds;
+        this.vx = Math.cos(CONFIG.physics.jumpAngle) * jumpSpeed;
+        this.vy = Math.sin(CONFIG.physics.jumpAngle) * jumpSpeed;
+        this.state = 'jumping';
+        this.spring.active = true;
+        this.spring.time = 0;
+        this.spring.amplitude = (1 - this.scaleY) * 0.95;
+      },
+
+      updateCharging(dt) {
+        this.chargeTime += dt;
+
+        const scaleY = Math.max(
+          1 - CONFIG.animation.chargeScale * Math.pow(this.chargeTime, CONFIG.physics.chargeGamma),
+          CONFIG.animation.minScaleY
+        );
+        const scaleX = Math.pow(1 / scaleY, CONFIG.animation.scaleBeta);
+
+        this.scaleY = scaleY;
+        this.scaleX = scaleX;
+      },
+
+      updateJumping(dt) {
+        this.vy += CONFIG.physics.gravity * dt;
+        this.x += this.vx * dt;
+        this.y += this.vy * dt;
+
+        const stretchFactor = 1 + clamp(-this.vy / 2400, -0.1, 0.1);
+        const airScaleX = stretchFactor;
+        const airScaleY = 1 / stretchFactor;
+
+        if (this.spring.active) {
+          this.spring.time += dt;
+          const { time, amplitude } = this.spring;
+          const w = CONFIG.animation.springOmega;
+          const z = CONFIG.animation.springZeta;
+          const wd = w * Math.sqrt(1 - z * z);
+          const rebound = 1 + amplitude * Math.exp(-z * w * time) * Math.cos(wd * time);
+
+          this.scaleY = rebound * airScaleY;
+          this.scaleX = Math.pow(1 / rebound, CONFIG.animation.scaleBeta) * airScaleX;
+
+          if (time > 0.85) {
+            this.spring.active = false;
+            this.scaleX = airScaleX;
+            this.scaleY = airScaleY;
+          }
+        } else {
+          this.scaleX = airScaleX;
+          this.scaleY = airScaleY;
+        }
+      },
+    };
+
+    let trialDoneResolver = null;
+
+    function armTrialDone(runId) {
+      return new Promise(resolve => {
+        trialDoneResolver = { runId, resolve };
+      });
+    }
+
+    function resolveTrialDone(outcome) {
+      if (!trialDoneResolver) return;
+      const resolver = trialDoneResolver;
+      trialDoneResolver = null;
+      resolver.resolve(outcome);
+    }
+
+    function abortCurrentRun() {
+      state.runId += 1;
+      state.isPaused = false;
+      state.gameEnded = false;
+      state.activeTrialSource = null;
+      state.pendingOutcome = null;
+      state.expectedReplayOutcome = null;
+      state.expectedReplayRecord = null;
+      resolveTrialDone('abort');
+    }
+
+    async function advanceReplayTime(ms, runId) {
+      let remaining = Math.max(0, ms);
+      let last = performance.now();
+
+      while (remaining > 0) {
+        if (runId !== state.runId || state.gameMode !== 'replay' || state.gameEnded) {
+          return false;
+        }
+
+        if (state.isPaused) {
+          await delay(20);
+          last = performance.now();
+          continue;
+        }
+
+        const now = performance.now();
+        remaining -= (now - last) * state.replaySpeed;
+        last = now;
+        await delay(10);
+      }
+
+      return runId === state.runId && state.gameMode === 'replay';
+    }
+
+    function sanitizeStatusAfterTrial() {
+      if (!state.session || state.gameEnded) return;
+
+      if (state.gameMode === 'live') {
+        const trialLabel = currentTrialDisplay();
+        updateUI(
+          `Trial ${trialLabel} / ${TOTAL_TRIALS}`,
+          'Hold on the canvas to charge. Release to jump.'
+        );
+      } else {
+        updateUI(
+          `Replay trial ${currentTrialDisplay()} / ${TOTAL_TRIALS}`,
+          state.willIntervene
+            ? 'Intervention is queued. Replay control will hand off at the next trial.'
+            : 'Replay is auto-playing the loaded session.'
+        );
+      }
+    }
+
+    function updateLiveRecordOutcome(trialNumber, outcome) {
+      const latest = state.trialRecords[state.trialRecords.length - 1];
+      if (!latest || latest.trial !== trialNumber || latest.outcome !== null) return;
+
+      latest.outcome = outcome;
+      if (outcome === 'success') {
+        latest.postLandingTimestamp = performance.now();
+        latest.landingX = player.x;
+        latest.landingY = player.y;
+      } else {
+        latest.postLandingTimestamp = null;
+        latest.landingX = null;
+        latest.landingY = null;
+      }
+    }
+
+    function finalizeTrial(outcome, landedPlatform = null) {
+      const trialNumber = state.trial + 1;
+      state.lastOutcome = outcome;
+      state.pendingOutcome = outcome;
+
+      if (outcome === 'success') {
+        state.successCount += 1;
+      } else {
+        state.failureCount += 1;
+      }
+
+      if (state.activeTrialSource === 'live') {
+        updateLiveRecordOutcome(trialNumber, outcome);
+      }
+
+      state.trial += 1;
+      platformManager.scrollAnchor = landedPlatform || platformManager.getPrimaryTarget();
+
+      if (outcome === 'success' && landedPlatform) {
+        player.y = landedPlatform.top - CONFIG.player.height / 2;
+      }
+
+      player.vx = 0;
+      player.vy = 0;
+      player.scaleX = 1;
+      player.scaleY = 1;
+      player.state = 'scrolling';
+
+      updateUI(
+        state.gameMode === 'live'
+          ? `Trial ${Math.min(state.trial, TOTAL_TRIALS)} resolved`
+          : `Replay trial ${Math.min(state.trial, TOTAL_TRIALS)} resolved`,
+        'Scrolling to the next setup…'
+      );
+    }
+
+    function endRun() {
+      if (state.gameEnded) return;
+      state.gameEnded = true;
+      state.isPaused = false;
+      state.activeTrialSource = null;
+      state.willIntervene = false;
+      resolveTrialDone('complete');
+
+      if (state.intervened) {
+        updateUI(
+          'Intervention run complete',
+          'Enter the participant ID again in the panel on the right to save the replay session.'
+        );
+        openSubmitPanel();
+      } else {
+        updateUI(
+          'Replay complete',
+          'No intervention occurred. Restart to watch the session again.'
+        );
+      }
+    }
+
+    function finalizeScroll() {
+      const outcome = state.pendingOutcome;
+      state.pendingOutcome = null;
+
+      if (state.activeTrialSource === 'replay' && state.expectedReplayRecord) {
+        state.trialRecords.push(cloneTrialForSave(state.expectedReplayRecord));
+      }
+
+      state.expectedReplayRecord = null;
+      state.expectedReplayOutcome = null;
+
+      if (state.trial >= TOTAL_TRIALS) {
+        player.respawn();
+        resolveTrialDone(outcome ?? 'complete');
+        endRun();
+        return;
+      }
+
+      if (state.gameMode === 'live') {
+        const nextLayoutSource = state.session?.trials?.[state.trial] ?? null;
+        platformManager.setupTrial(state.trial, nextLayoutSource);
+      }
+
+      player.respawn();
+      resolveTrialDone(outcome ?? 'complete');
+      sanitizeStatusAfterTrial();
+    }
+
+    function handleJumpState() {
+      if (state.activeTrialSource === 'replay') {
+        if (state.expectedReplayOutcome === 'failure') {
+          if (platformManager.checkFailure()) {
+            finalizeTrial('failure', null);
+          }
+          return;
+        }
+
+        const landedReplay = platformManager.checkLanding(14);
+        if (landedReplay) {
+          finalizeTrial('success', landedReplay);
+          return;
+        }
+
+        if (platformManager.checkFailure()) {
+          const fallback = platformManager.getReplayFallbackTarget();
+          if (fallback) {
+            player.x = fallback.centerX;
+            player.y = fallback.top - CONFIG.player.height / 2;
+          }
+          finalizeTrial('success', fallback);
+        }
+        return;
+      }
+
+      const landed = platformManager.checkLanding();
+      if (landed) {
+        finalizeTrial('success', landed);
+      } else if (platformManager.checkFailure()) {
+        finalizeTrial('failure', null);
+      }
+    }
+
+    function activateLiveMode() {
+      if (!state.session || state.trial >= TOTAL_TRIALS) {
+        endRun();
+        return;
+      }
+
+      state.intervened = true;
+      state.willIntervene = false;
+      state.gameMode = 'live';
+      state.activeTrialSource = 'live';
+      state.expectedReplayOutcome = null;
+      state.expectedReplayRecord = null;
+      platformManager.setupTrial(state.trial, state.session.trials[state.trial] ?? null);
+      player.respawn();
+      updateUI(
+        `Trial ${currentTrialDisplay()} / ${TOTAL_TRIALS}`,
+        'Takeover active. Hold on the canvas to charge, then release to jump.'
+      );
+    }
+
+    async function runReplaySequence(runId) {
+      while (runId === state.runId && state.gameMode === 'replay' && !state.gameEnded && state.trial < TOTAL_TRIALS) {
+        const trialIndex = state.trial;
+        const record = state.session?.trials?.[trialIndex];
+        if (!record) {
+          endRun();
+          return;
+        }
+
+        state.activeTrialSource = 'replay';
+        state.expectedReplayOutcome = record.outcome === 'success' ? 'success' : 'failure';
+        state.expectedReplayRecord = record;
+        platformManager.setupTrial(trialIndex, record);
+        player.respawn();
+        updateUI(
+          `Replay trial ${trialIndex + 1} / ${TOTAL_TRIALS}`,
+          state.willIntervene
+            ? 'Intervention queued. Replay will stop after this trial.'
+            : 'Replay is auto-playing the saved timings.'
+        );
+
+        const ready = await advanceReplayTime(record.landingToPressMs ?? 500, runId);
+        if (!ready) return;
+
+        player.beginChargeVisual();
+        updateUI(
+          `Replay trial ${trialIndex + 1} / ${TOTAL_TRIALS}`,
+          state.willIntervene
+            ? 'Intervention queued. The replayed jump is finishing first.'
+            : 'Replay is charging the saved jump.'
+        );
+
+        const charged = await advanceReplayTime(record.pressToJumpMs ?? 100, runId);
+        if (!charged) return;
+
+        const trialDone = armTrialDone(runId);
+        player.launchFromChargeTime((record.pressToJumpMs ?? 100) / 1000);
+        const outcome = await trialDone;
+        if (runId !== state.runId || outcome === 'abort') return;
+
+        if (state.gameEnded) return;
+
+        const settled = await advanceReplayTime(600, runId);
+        if (!settled) return;
+
+        if (state.willIntervene && state.trial < TOTAL_TRIALS) {
+          activateLiveMode();
+          return;
+        }
+      }
+
+      if (runId === state.runId && state.trial >= TOTAL_TRIALS) {
+        endRun();
+      }
+    }
+
+    function beginSession(session) {
+      abortCurrentRun();
+      closeSubmitPanel();
+      hideError();
+
+      state.session = session;
+      state.loadedSessionId = session._id;
+      state.trial = 0;
+      state.successCount = 0;
+      state.failureCount = 0;
+      state.lastPressTimestamp = null;
+      state.currentTrialRecord = null;
+      state.trialRecords = [];
+      state.gameMode = 'replay';
+      state.activeTrialSource = null;
+      state.replaySpeed = SPEED_OPTIONS[+speedSlider.value];
+      state.willIntervene = false;
+      state.intervened = false;
+      state.lastOutcome = null;
+      state.pendingOutcome = null;
+      state.expectedReplayOutcome = null;
+      state.expectedReplayRecord = null;
+      state.submitComplete = false;
+      state.lastFrameTime = performance.now();
+
+      platformManager.setupTrial(0, session.trials[0] ?? null);
+      player.respawn();
+      updateUI(
+        `Replay trial 1 / ${TOTAL_TRIALS}`,
+        'Replay begins automatically. Press Intervene if the participant should take control on the next trial.'
+      );
+
+      const runId = state.runId;
+      runReplaySequence(runId);
+    }
+
+    function restartCurrentSession() {
+      if (!state.session) return;
+      beginSession(state.session);
+    }
+
+    async function loadSessionById(id) {
+      if (!id) return;
+
+      loadBtn.disabled = true;
+      loadBtn.textContent = 'Loading…';
+      hideError();
+
+      try {
+        const response = await fetch(`http://localhost:3000/api/results/${id}`);
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+
+        const rawSession = await response.json();
+        const session = normalizeSession(rawSession);
+        beginSession(session);
+      } catch (error) {
+        showError(`Failed to load session: ${error.message}`);
+      } finally {
+        loadBtn.disabled = false;
+        loadBtn.textContent = 'Load & Start';
+      }
+    }
+
+    async function submitReplayResults() {
+      if (!state.intervened || !state.gameEnded) {
+        return;
+      }
+
+      const typedId = submitIdInput.value.trim();
+      if (!typedId) {
+        submitError.textContent = 'Please enter a participant ID.';
+        submitIdInput.focus();
+        return;
+      }
+
+      if (state.trialRecords.length < TOTAL_TRIALS) {
+        submitError.textContent = 'Results are incomplete and cannot be submitted yet.';
+        return;
+      }
+
+      submitError.textContent = '';
+      submitStatus.textContent = 'Submitting…';
+      submitStatus.classList.remove('success-text');
+      submitBtn.disabled = true;
+      state.isSubmitting = true;
+
+      const participantId = `${typedId.replace(/_replay$/i, '')}_replay`;
+      const payload = {
+        participantId,
+        submittedAt: new Date().toISOString(),
+        successCount: state.successCount,
+        failureCount: state.failureCount,
+        totalTrials: TOTAL_TRIALS,
+        successRate: state.successCount / TOTAL_TRIALS,
+        trials: state.trialRecords.slice(0, TOTAL_TRIALS).map(cloneTrialForSave),
+      };
+
+      try {
+        const response = await fetch('http://localhost:3000/api/save-results', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Server error (${response.status}): ${errorText}`);
+        }
+
+        const data = await response.json();
+        state.submitComplete = true;
+        submitStatus.textContent = `Results saved as ${participantId}. Session ID: ${data.sessionId}`;
+        submitStatus.classList.add('success-text');
+      } catch (error) {
+        submitBtn.disabled = false;
+        submitStatus.textContent = error.message || 'Submission failed.';
+        submitStatus.classList.remove('success-text');
+      } finally {
+        state.isSubmitting = false;
+      }
+    }
+
+    function update(dt) {
+      if (!state.session || state.gameEnded || state.isPaused) {
+        return;
+      }
+
+      const scaledDt = state.gameMode === 'replay'
+        ? Math.min(0.08, dt * state.replaySpeed)
+        : dt;
+
+      platformManager.update(scaledDt);
+
+      switch (player.state) {
+        case 'charging':
+          player.updateCharging(scaledDt);
+          break;
+        case 'jumping':
+          player.updateJumping(scaledDt);
+          handleJumpState();
+          break;
+        case 'scrolling':
+          if (platformManager.scrollToAlign(scaledDt)) {
+            finalizeScroll();
+          }
+          break;
+        default:
+          break;
+      }
+    }
+
+    function renderBackground() {
+      const sky = ctx.createLinearGradient(0, 0, 0, CANVAS_H);
+      sky.addColorStop(0, '#f8fbff');
+      sky.addColorStop(1, '#eef3f8');
+      ctx.fillStyle = sky;
+      ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+
+      ctx.fillStyle = 'rgba(203, 213, 225, 0.28)';
+      ctx.fillRect(0, PLATFORM_Y + 20, CANVAS_W, CANVAS_H - PLATFORM_Y);
+    }
+
+    function renderPlatforms() {
+      platformManager.getPlatforms().forEach(platform => {
+        ctx.fillStyle = platform.role === 'current'
+          ? CONFIG.platform.colorCurrent
+          : platform.role === 'target-alt'
+            ? CONFIG.platform.colorTargetAlt
+            : CONFIG.platform.colorTarget;
+
+        ctx.strokeStyle = CONFIG.platform.outline;
+        ctx.lineWidth = 1;
+        ctx.fillRect(platform.left, platform.top, platform.width, platform.height);
+        ctx.strokeRect(platform.left, platform.top, platform.width, platform.height);
+      });
+    }
+
+    function renderPlayer() {
+      ctx.save();
+      ctx.translate(player.x, player.y);
+      ctx.scale(player.scaleX, player.scaleY);
+      ctx.fillStyle = getPlayerRenderColor();
+      ctx.fillRect(-CONFIG.player.width / 2, -CONFIG.player.height / 2, CONFIG.player.width, CONFIG.player.height);
+      ctx.restore();
+    }
+
+    function renderOverlay() {
+      const trialLabel = state.session ? `Trial ${currentTrialDisplay()} / ${TOTAL_TRIALS}` : 'No Session';
+      const modeLabel = state.gameMode === 'live' ? 'LIVE' : 'REPLAY';
+      const modeColor = state.gameMode === 'live' ? '#16a34a' : '#2563eb';
+
+      ctx.fillStyle = 'rgba(17, 32, 49, 0.68)';
+      ctx.font = '700 16px ui-sans-serif, system-ui';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'top';
+      ctx.fillText(trialLabel, 14, 12);
+
+      ctx.textAlign = 'right';
+      ctx.fillStyle = modeColor;
+      ctx.fillText(modeLabel, CANVAS_W - 14, 12);
+
+      if (state.lastOutcome) {
+        ctx.fillStyle = state.lastOutcome === 'success' ? '#16a34a' : '#dc2626';
+        ctx.font = '900 22px ui-sans-serif, system-ui';
+        ctx.fillText(state.lastOutcome === 'success' ? '✓' : '✗', CANVAS_W - 14, 34);
+      }
+
+      if (state.willIntervene) {
+        ctx.textAlign = 'left';
+        ctx.fillStyle = '#f97316';
+        ctx.font = '700 13px ui-sans-serif, system-ui';
+        ctx.fillText('Intervention queued for next trial', 14, 34);
+      }
+
+      if (!state.session) {
+        ctx.textAlign = 'center';
+        ctx.fillStyle = 'rgba(17, 32, 49, 0.4)';
+        ctx.font = '700 18px ui-sans-serif, system-ui';
+        ctx.fillText('Load a session to start the intervention replay.', CANVAS_W / 2, CANVAS_H / 2 - 12);
+      }
+
+      if (state.gameEnded) {
+        ctx.fillStyle = 'rgba(255,255,255,0.82)';
+        ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+        ctx.fillStyle = '#0f172a';
+        ctx.textAlign = 'center';
+        ctx.font = '900 30px ui-sans-serif, system-ui';
+        ctx.fillText(state.intervened ? 'Takeover Complete' : 'Replay Complete', CANVAS_W / 2, CANVAS_H / 2 - 24);
+        ctx.font = '600 16px ui-sans-serif, system-ui';
+        ctx.fillStyle = '#475569';
+        ctx.fillText(
+          state.intervened
+            ? 'Submit the participant ID in the side panel.'
+            : 'Restart to watch the session again.',
+          CANVAS_W / 2,
+          CANVAS_H / 2 + 18
+        );
+      }
+    }
+
+    function render() {
+      renderBackground();
+      renderPlatforms();
+      renderPlayer();
+      renderOverlay();
+    }
+
+    function gameLoop(now) {
+      const dt = Math.min(0.033, (now - state.lastFrameTime) / 1000);
+      state.lastFrameTime = now;
+      update(dt);
+      render();
+      requestAnimationFrame(gameLoop);
+    }
+
+    function handlePointerDown(event) {
+      if (state.gameMode !== 'live' || state.isPaused || state.gameEnded) return;
+      event.preventDefault();
+      if (typeof canvas.setPointerCapture === 'function') {
+        try {
+          canvas.setPointerCapture(event.pointerId);
+        } catch {
+          // Ignore capture failures.
+        }
+      }
+      player.startLiveCharge();
+    }
+
+    function handlePointerUp(event) {
+      if (state.gameMode !== 'live' || state.isPaused || state.gameEnded) return;
+      event.preventDefault();
+      player.releaseLiveJump();
+    }
+
+    searchBtn.addEventListener('click', filterSessions);
+    pidSearch.addEventListener('keydown', event => {
+      if (event.key === 'Enter') {
+        filterSessions();
+      }
+    });
+
+    showAllBtn.addEventListener('click', () => {
+      pidSearch.value = '';
+      populateDropdown(state.allSessions);
+    });
+
+    loadBtn.addEventListener('click', () => {
+      const id = sessionSelect.value;
+      if (id) {
+        loadSessionById(id);
+      }
+    });
+
+    speedSlider.addEventListener('input', () => {
+      state.replaySpeed = SPEED_OPTIONS[+speedSlider.value];
+      speedLabel.textContent = `${state.replaySpeed}×`;
+    });
+
+    pauseBtn.addEventListener('click', () => {
+      if (!state.session || state.gameEnded) return;
+      state.isPaused = !state.isPaused;
+      updateUI(
+        state.isPaused ? 'Paused' : state.gameMode === 'live'
+          ? `Trial ${currentTrialDisplay()} / ${TOTAL_TRIALS}`
+          : `Replay trial ${currentTrialDisplay()} / ${TOTAL_TRIALS}`,
+        state.isPaused
+          ? 'The game is paused.'
+          : state.gameMode === 'live'
+            ? 'Hold on the canvas to charge. Release to jump.'
+            : state.willIntervene
+              ? 'Replay resumed. Intervention is still queued for the next trial.'
+              : 'Replay resumed.'
+      );
+    });
+
+    restartBtn.addEventListener('click', restartCurrentSession);
+
+    interveneBtn.addEventListener('click', () => {
+      if (!state.session || state.gameMode !== 'replay' || state.gameEnded || state.willIntervene) {
+        return;
+      }
+      state.willIntervene = true;
+      updateUI(
+        `Replay trial ${currentTrialDisplay()} / ${TOTAL_TRIALS}`,
+        'Intervention queued. The replayed trial will finish first, and live control starts on the next trial.'
+      );
+    });
+
+    submitBtn.addEventListener('click', submitReplayResults);
+    submitIdInput.addEventListener('keydown', event => {
+      if (event.key === 'Enter') {
+        submitReplayResults();
+      }
+    });
+
+    canvas.addEventListener('pointerdown', handlePointerDown);
+    canvas.addEventListener('pointerup', handlePointerUp);
+    canvas.addEventListener('pointercancel', handlePointerUp);
+    canvas.addEventListener('touchstart', event => event.preventDefault(), { passive: false });
+
+    (async () => {
+      speedLabel.textContent = `${state.replaySpeed}×`;
+      updateUI('No session loaded', 'Choose a session to begin.');
+      render();
+
+      try {
+        const response = await fetch('http://localhost:3000/api/results');
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+
+        state.allSessions = await response.json();
+        if (!state.allSessions.length) {
+          sessionSelect.innerHTML = '<option value="">No sessions found</option>';
+          searchCount.textContent = '0 sessions';
+          return;
+        }
+
+        populateDropdown(state.allSessions);
+
+        const params = new URLSearchParams(window.location.search);
+        const sessionId = params.get('sessionId');
+        if (sessionId && state.allSessions.some(session => session._id === sessionId)) {
+          sessionSelect.value = sessionId;
+          await loadSessionById(sessionId);
+        }
+      } catch (error) {
+        showError('Could not connect to the server. Make sure it is running at http://localhost:3000.');
+        sessionSelect.innerHTML = '<option value="">Could not load sessions</option>';
+      }
+    })();
+
+    requestAnimationFrame(gameLoop);
+  })();
+  </script>
+</body>
+</html>
