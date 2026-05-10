@@ -215,10 +215,10 @@
     }
 
     .canvas-shell {
-      background: linear-gradient(180deg, rgba(255,255,255,0.85) 0%, rgba(240,246,251,0.95) 100%);
-      border-radius: 18px;
-      border: 1px solid #dde6ef;
-      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
     }
 
     canvas {
@@ -227,16 +227,17 @@
       max-width: 600px;
       margin: 0 auto;
       background: #ffffff;
-      border-radius: 12px 12px 0 0;
-      border: 2px solid #dde6ef;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,.1);
+      touch-action: none;
     }
 
     .progress-track {
       width: 100%;
       max-width: 600px;
       height: 8px;
-      margin: 0 auto;
-      border-radius: 0 0 10px 10px;
+      border-radius: 999px;
       overflow: hidden;
       background: #dfe8f1;
     }
@@ -461,6 +462,9 @@
   const PLATFORM_COLOR = '#d0d0d0';
   const PLAYER_W       = 25;
   const PLAYER_H       = 50;
+  const PLAYER_COLOR        = '#000000';
+  const PLAYER_CHARGE_COLOR = '#FFC20A';
+  const PLAYER_MAX_VISUAL_CHARGE_TIME = 1.2;
   const SCROLL_SPEED   = 450;
 
   const MOVING_CFG = {
@@ -541,6 +545,34 @@
   function avg(arr) {
     if (!arr.length) return '—';
     return Math.round(arr.reduce((a, b) => a + b, 0) / arr.length);
+  }
+
+  function hexToRgb(hexColor) {
+    const normalized = hexColor.replace('#', '');
+    const value = normalized.length === 3
+      ? normalized.split('').map(char => char + char).join('')
+      : normalized;
+    return {
+      r: parseInt(value.slice(0, 2), 16),
+      g: parseInt(value.slice(2, 4), 16),
+      b: parseInt(value.slice(4, 6), 16),
+    };
+  }
+
+  function interpolateColor(fromColor, toColor, progress) {
+    const start = hexToRgb(fromColor);
+    const end = hexToRgb(toColor);
+    const t = clamp(progress, 0, 1);
+    const r = Math.round(start.r + (end.r - start.r) * t);
+    const g = Math.round(start.g + (end.g - start.g) * t);
+    const b = Math.round(start.b + (end.b - start.b) * t);
+    return `rgb(${r}, ${g}, ${b})`;
+  }
+
+  function getPlayerRenderColor() {
+    if (player.state !== 'charging') return PLAYER_COLOR;
+    const chargeProgress = clamp(player.chargeTime / PLAYER_MAX_VISUAL_CHARGE_TIME, 0, 1);
+    return interpolateColor(PLAYER_COLOR, PLAYER_CHARGE_COLOR, chargeProgress);
   }
 
   // ── Replay state ─────────────────────────────────────────────────────────
@@ -871,30 +903,9 @@
     ctx.save();
     ctx.translate(player.x, player.y);
     ctx.scale(player.scaleX, player.scaleY);
-    ctx.fillStyle = '#000';
+    ctx.fillStyle = getPlayerRenderColor();
     ctx.fillRect(-PLAYER_W / 2, -PLAYER_H / 2, PLAYER_W, PLAYER_H);
     ctx.restore();
-
-    // ── Overlay (only when a session is loaded) ──
-    if (RS.session) {
-      const trial = RS.currentTrial;
-
-      // Top-left: trial counter
-      ctx.fillStyle = 'rgba(0,0,0,0.6)';
-      ctx.font = 'bold 16px ui-sans-serif, system-ui';
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'top';
-      ctx.fillText(`Trial ${trial} / ${TOTAL_TRIALS}`, 12, 10);
-
-      // Top-right: outcome icon
-      if (RS.lastOutcome) {
-        ctx.font = 'bold 22px ui-sans-serif, system-ui';
-        ctx.textAlign = 'right';
-        ctx.textBaseline = 'top';
-        ctx.fillStyle = RS.lastOutcome === 'success' ? '#22c55e' : '#ef4444';
-        ctx.fillText(RS.lastOutcome === 'success' ? '✓' : '✗', CANVAS_W - 12, 10);
-      }
-    }
   }
 
   function gameLoop(now) {

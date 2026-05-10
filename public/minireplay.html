@@ -156,25 +156,7 @@
       background: var(--accent-strong);
     }
 
-    .speed-wrap {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-left: auto;
-      min-height: 42px;
-      padding: 0 4px;
-    }
 
-    .speed-wrap input[type="range"] {
-      width: 130px;
-    }
-
-    #speed-label {
-      min-width: 28px;
-      text-align: right;
-      font-size: 13px;
-      font-weight: 800;
-    }
 
     .meta-note {
       font-size: 13px;
@@ -255,10 +237,10 @@
     }
 
     .canvas-shell {
-      background: linear-gradient(180deg, rgba(255,255,255,0.85) 0%, rgba(240,246,251,0.95) 100%);
-      border-radius: 18px;
-      border: 1px solid #dde6ef;
-      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
     }
 
     canvas {
@@ -267,9 +249,9 @@
       max-width: 600px;
       margin: 0 auto;
       background: #ffffff;
-      border-radius: 12px 12px 0 0;
-      border: 2px solid #dde6ef;
-      box-shadow: inset 0 -50px 80px rgba(224, 232, 240, 0.3);
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,.1);
       touch-action: none;
     }
 
@@ -277,8 +259,7 @@
       width: 100%;
       max-width: 600px;
       height: 8px;
-      margin: 0 auto;
-      border-radius: 0 0 10px 10px;
+      border-radius: 999px;
       overflow: hidden;
       background: #dfe8f1;
     }
@@ -505,11 +486,7 @@
           <option value="">Loading sessions…</option>
         </select>
         <button id="load-btn" class="btn" disabled>Load &amp; Start</button>
-        <div class="speed-wrap">
-          <label for="speed-slider">Replay Speed</label>
-          <input type="range" id="speed-slider" min="0" max="3" step="1" value="1" />
-          <span id="speed-label">1×</span>
-        </div>
+
       </div>
 
       <div class="meta-note" id="toolbar-note">
@@ -586,7 +563,7 @@
     'use strict';
 
     const PARTICIPANT_ID_LABEL = 'Participant ID';
-    const SPEED_OPTIONS = [0.5, 1, 2, 3];
+
 
     const CONFIG = {
       canvas: {
@@ -597,10 +574,7 @@
         height: 16,
         currentWidth: 80,
         edgeMargin: 40,
-        colorCurrent: '#9aa9b8',
-        colorTarget: '#d7dee6',
-        colorTargetAlt: '#c7d4df',
-        outline: '#cbd5df',
+        color: '#d0d0d0',
         motion: {
           vertical: {
             amplitude: 62,
@@ -615,8 +589,8 @@
       player: {
         width: 25,
         height: 50,
-        color: '#0f172a',
-        chargeColor: '#f59e0b',
+        color: '#000000',
+        chargeColor: '#FFC20A',
         maxVisualChargeTime: 1.2,
       },
       physics: {
@@ -710,8 +684,7 @@
     const searchCount = document.getElementById('search-count');
     const sessionSelect = document.getElementById('session-select');
     const loadBtn = document.getElementById('load-btn');
-    const speedSlider = document.getElementById('speed-slider');
-    const speedLabel = document.getElementById('speed-label');
+
     const pauseBtn = document.getElementById('pause-btn');
     const restartBtn = document.getElementById('restart-btn');
     const interveneBtn = document.getElementById('intervene-btn');
@@ -1041,11 +1014,7 @@
         interveneBtn.textContent = 'Intervene';
       }
 
-      if (state.gameMode === 'live') {
-        speedSlider.disabled = true;
-      } else {
-        speedSlider.disabled = !hasSession || state.gameEnded;
-      }
+
     }
 
     function updateModeUI() {
@@ -1737,7 +1706,7 @@
       state.trialRecords = [];
       state.gameMode = 'replay';
       state.activeTrialSource = null;
-      state.replaySpeed = SPEED_OPTIONS[+speedSlider.value];
+      state.replaySpeed = 1;
       state.willIntervene = false;
       state.intervened = false;
       state.lastOutcome = null;
@@ -1876,28 +1845,13 @@
     }
 
     function renderBackground() {
-      const sky = ctx.createLinearGradient(0, 0, 0, CANVAS_H);
-      sky.addColorStop(0, '#f8fbff');
-      sky.addColorStop(1, '#eef3f8');
-      ctx.fillStyle = sky;
-      ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
-
-      ctx.fillStyle = 'rgba(203, 213, 225, 0.28)';
-      ctx.fillRect(0, PLATFORM_Y + 20, CANVAS_W, CANVAS_H - PLATFORM_Y);
+      ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
     }
 
     function renderPlatforms() {
+      ctx.fillStyle = CONFIG.platform.color;
       platformManager.getPlatforms().forEach(platform => {
-        ctx.fillStyle = platform.role === 'current'
-          ? CONFIG.platform.colorCurrent
-          : platform.role === 'target-alt'
-            ? CONFIG.platform.colorTargetAlt
-            : CONFIG.platform.colorTarget;
-
-        ctx.strokeStyle = CONFIG.platform.outline;
-        ctx.lineWidth = 1;
         ctx.fillRect(platform.left, platform.top, platform.width, platform.height);
-        ctx.strokeRect(platform.left, platform.top, platform.width, platform.height);
       });
     }
 
@@ -1910,65 +1864,10 @@
       ctx.restore();
     }
 
-    function renderOverlay() {
-      const trialLabel = state.session ? `Trial ${currentTrialDisplay()} / ${TOTAL_TRIALS}` : 'No Session';
-      const modeLabel = state.gameMode === 'live' ? 'LIVE' : 'REPLAY';
-      const modeColor = state.gameMode === 'live' ? '#16a34a' : '#2563eb';
-
-      ctx.fillStyle = 'rgba(17, 32, 49, 0.68)';
-      ctx.font = '700 16px ui-sans-serif, system-ui';
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'top';
-      ctx.fillText(trialLabel, 14, 12);
-
-      ctx.textAlign = 'right';
-      ctx.fillStyle = modeColor;
-      ctx.fillText(modeLabel, CANVAS_W - 14, 12);
-
-      if (state.lastOutcome) {
-        ctx.fillStyle = state.lastOutcome === 'success' ? '#16a34a' : '#dc2626';
-        ctx.font = '900 22px ui-sans-serif, system-ui';
-        ctx.fillText(state.lastOutcome === 'success' ? '✓' : '✗', CANVAS_W - 14, 34);
-      }
-
-      if (state.willIntervene) {
-        ctx.textAlign = 'left';
-        ctx.fillStyle = '#f97316';
-        ctx.font = '700 13px ui-sans-serif, system-ui';
-        ctx.fillText('Intervention queued for next trial', 14, 34);
-      }
-
-      if (!state.session) {
-        ctx.textAlign = 'center';
-        ctx.fillStyle = 'rgba(17, 32, 49, 0.4)';
-        ctx.font = '700 18px ui-sans-serif, system-ui';
-        ctx.fillText('Load a session to start the intervention replay.', CANVAS_W / 2, CANVAS_H / 2 - 12);
-      }
-
-      if (state.gameEnded) {
-        ctx.fillStyle = 'rgba(255,255,255,0.82)';
-        ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
-        ctx.fillStyle = '#0f172a';
-        ctx.textAlign = 'center';
-        ctx.font = '900 30px ui-sans-serif, system-ui';
-        ctx.fillText(state.intervened ? 'Takeover Complete' : 'Replay Complete', CANVAS_W / 2, CANVAS_H / 2 - 24);
-        ctx.font = '600 16px ui-sans-serif, system-ui';
-        ctx.fillStyle = '#475569';
-        ctx.fillText(
-          state.intervened
-            ? 'Submit the participant ID in the side panel.'
-            : 'Restart to watch the session again.',
-          CANVAS_W / 2,
-          CANVAS_H / 2 + 18
-        );
-      }
-    }
-
     function render() {
       renderBackground();
       renderPlatforms();
       renderPlayer();
-      renderOverlay();
     }
 
     function gameLoop(now) {
@@ -2017,10 +1916,7 @@
       }
     });
 
-    speedSlider.addEventListener('input', () => {
-      state.replaySpeed = SPEED_OPTIONS[+speedSlider.value];
-      speedLabel.textContent = `${state.replaySpeed}×`;
-    });
+
 
     pauseBtn.addEventListener('click', () => {
       if (!state.session || state.gameEnded) return;
@@ -2065,7 +1961,7 @@
     canvas.addEventListener('touchstart', event => event.preventDefault(), { passive: false });
 
     (async () => {
-      speedLabel.textContent = `${state.replaySpeed}×`;
+
       updateUI('No session loaded', 'Choose a session to begin.');
       render();
 
